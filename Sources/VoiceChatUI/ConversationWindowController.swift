@@ -61,18 +61,20 @@ public final class ConversationWindowController: NSWindowController, NSWindowDel
         glass.contentView = host
         window.contentView = glass
 
-        observeTheme()
+        observeSettings()
     }
 
-    /// The header's theme buttons drive the window's appearance; `Default`
-    /// hands it back to the system.
-    private func observeTheme() {
+    /// The header's theme buttons drive the window's appearance (`Default`
+    /// hands it back to the system); its pin drives whether the window floats.
+    private func observeSettings() {
         withObservationTracking {
             _ = GlassSettings.shared.theme
+            _ = GlassSettings.shared.alwaysOnTop
         } onChange: { [weak self] in
-            Task { @MainActor in self?.observeTheme() }
+            Task { @MainActor in self?.observeSettings() }
         }
         window?.appearance = GlassSettings.shared.theme.appearance
+        window?.level = GlassSettings.shared.alwaysOnTop ? .floating : .normal
     }
 
     @available(*, unavailable)

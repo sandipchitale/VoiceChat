@@ -62,9 +62,17 @@ final class GlassSettings {
     static let shared = GlassSettings()
     private static let key = "VoiceChatGlassOpacity"
     private static let themeKey = "VoiceChatTheme"
+    private static let alwaysOnTopKey = "VoiceChatAlwaysOnTop"
 
     var theme: GlassTheme {
         didSet { UserDefaults.standard.set(theme.rawValue, forKey: Self.themeKey) }
+    }
+
+    /// Whether conversation windows float above other apps' windows. On by
+    /// default — a conversation window nobody can see defeats the point of the
+    /// tool call — but the pin in the header lets the person opt out.
+    var alwaysOnTop: Bool {
+        didSet { UserDefaults.standard.set(alwaysOnTop, forKey: Self.alwaysOnTopKey) }
     }
 
     /// 0 is as see-through as the glass gets, 1 is nearly solid.
@@ -81,6 +89,7 @@ final class GlassSettings {
         let stored = UserDefaults.standard.object(forKey: Self.key) as? Double
         opacity = min(max(stored ?? 0.35, 0), 1)
         theme = UserDefaults.standard.string(forKey: Self.themeKey).flatMap(GlassTheme.init) ?? .system
+        alwaysOnTop = UserDefaults.standard.object(forKey: Self.alwaysOnTopKey) as? Bool ?? true
     }
 }
 
@@ -163,6 +172,8 @@ struct HUDHeader: View {
             }
             Spacer()
 
+            PinButton(isPinned: $settings.alwaysOnTop)
+
             ThemePicker(selection: $settings.theme)
 
             HStack(spacing: 8) {
@@ -192,6 +203,31 @@ struct GlassDivider: View {
 
     var body: some View {
         Rectangle().fill(scheme.hairline).frame(height: 1)
+    }
+}
+
+/// Pins the window above other apps' windows, or lets it sit among them.
+struct PinButton: View {
+    @Binding var isPinned: Bool
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button { isPinned.toggle() } label: {
+            Image(systemName: isPinned ? "pin.fill" : "pin.slash")
+                .font(.system(size: 11))
+                .foregroundStyle(isPinned ? AnyShapeStyle(scheme.accentText) : AnyShapeStyle(.secondary))
+                .frame(width: 26, height: 22)
+                .background(Capsule().fill(isPinned ? Glass.accent.opacity(0.22) : scheme.ink.opacity(0.06)))
+                .overlay(Capsule().strokeBorder(scheme.hairline))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(isPinned ? "Always on top — click to let other windows cover it"
+                       : "Not always on top — click to keep it above other windows")
+        .accessibilityLabel("Always on top")
+        .accessibilityValue(isPinned ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
+        .padding(.trailing, 6)
     }
 }
 
