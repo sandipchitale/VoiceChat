@@ -61,6 +61,17 @@ public final class ConversationWindowController: NSWindowController, NSWindowDel
         glass.contentView = host
         window.contentView = glass
 
+        // A borderless window's frame is square, so the system draws its
+        // shadow and active-window outline square too — visible as a sharp
+        // corner poking out past the rounded glass. Rounding the frame's own
+        // layer makes both follow the glass.
+        if let frame = glass.superview {
+            frame.wantsLayer = true
+            frame.layer?.cornerRadius = Metrics.windowCornerRadius
+            frame.layer?.cornerCurve = .continuous
+            frame.layer?.masksToBounds = true
+        }
+
         observeSettings()
     }
 
