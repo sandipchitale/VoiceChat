@@ -1,0 +1,64 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:VoiceChat}",
+            "name": "Debug voicechat-mcp",
+            "target": "voicechat-mcp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug voicechat-mcp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:VoiceChat}",
+            "name": "Release voicechat-mcp",
+            "target": "voicechat-mcp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release voicechat-mcp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:VoiceChat}",
+            "name": "Debug vcp-probe",
+            "target": "vcp-probe",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug vcp-probe"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:VoiceChat}",
+            "name": "Release vcp-probe",
+            "target": "vcp-probe",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release vcp-probe"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:VoiceChat}",
+            "name": "Debug voicechatd",
+            "target": "voicechatd",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug voicechatd"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:VoiceChat}",
+            "name": "Release voicechatd",
+            "target": "voicechatd",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release voicechatd"
+        }
+    ]
+}

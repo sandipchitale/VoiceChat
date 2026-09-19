@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>VoiceChat</string>
+    <key>CFBundleDisplayName</key>
+    <string>VoiceChat</string>
+    <key>CFBundleIdentifier</key>
+    <string>dev.sandipchitale.voicechat</string>
+    <key>CFBundleExecutable</key>
+    <string>VoiceChat</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>2.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>2.0.0</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+
+    <!-- Spec R-APP-1: menu bar only, no Dock icon. -->
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
+
+    <!-- Spec R-STT-24: written in terms of what the person gets, not what the
+         app does. Without these keys macOS terminates the process the moment
+         it asks for the microphone. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>VoiceChat listens so you can speak your prompts instead of typing them.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>VoiceChat turns your speech into text on this Mac so you can dictate and use voice commands.</string>
+
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticTermination</key>
+    <false/>
+    <key>NSSupportsSuddenTermination</key>
+    <false/>
+</dict>
+</plist>

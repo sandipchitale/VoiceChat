@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager build products & local state
+.build/
+.swiftpm/
+
+# Assembled app bundle (produced by Scripts/make-app.sh)
+*.app
+
+# Xcode (in case an .xcodeproj/.xcworkspace is added later)
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# Claude Code machine-specific settings (permissions, sandbox, enabled servers)
+.claude/settings.local.json

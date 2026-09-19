@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "voicechat-stdio": {
+      "type": "stdio",
+      "command": "/Applications/VoiceChat.app/Contents/MacOS/voicechat-mcp",
+      "args": []
+    },
+    "voicechat-http": {
+      "type": "streamable-http",
+      "url": "http://localhost:8765/mcp"
+    }
+  }
+}

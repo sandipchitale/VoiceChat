@@ -1,0 +1,117 @@
+import Foundation
+import MCP
+
+// Spec §4.2 — the `converse` tool's contract, shared verbatim by every
+// transport (stdio, Streamable HTTP, …) so they cannot drift apart.
+
+public enum ConverseTool {
+    public static let name = "converse"
+
+    public static let description = """
+    Hold a spoken, multi-turn conversation with the user in a dedicated window on their Mac. The user \
+    speaks or types; you reply; your reply is read aloud to them; they answer. Use this when the user \
+    asks to talk, to use voice, or to have a back-and-forth conversation.
+
+    How to run the conversation:
+
+    1. Start by calling `converse` with no arguments. A window opens on the user's screen.
+    2. Each call returns a `status`. Act on it:
+       - status "prompt" — `user_message` is what the user just said. Answer it, then call `converse` \
+    again with your answer in `message`. Your answer is displayed and read aloud.
+       - status "waiting" — the user is still composing. Call `converse` again IMMEDIATELY, passing \
+    back the `continuation` token unchanged and NO `message`. Do not write anything to the user, do not \
+    do other work, and do not stop. This result only means the window is still open and the user has \
+    not finished speaking yet.
+       - status "ended" — the user closed the conversation. Reply with exactly "Conversation ended." \
+    and do not call `converse` again.
+    3. Keep looping until you get "ended". The conversation is over only when the user ends it.
+
+    Rules:
+
+    - Never invent, guess, or summarise a user turn. The only thing the user said is what arrives in \
+    `user_message`.
+    - Write `message` as if speaking it aloud, because it will be. Prefer short sentences. Markdown \
+    formatting is rendered in the window; code blocks are shown but not read aloud.
+    - Do not ask the user to type in this chat while a conversation is open — they are looking at the \
+    VoiceChat window.
+    - If a call returns an error, report it to the user in plain language and stop; do not retry in a \
+    loop.
+    """
+
+    public static let inputSchema: Value = .object([
+        "type": .string("object"),
+        "additionalProperties": .bool(false),
+        "properties": .object([
+            "message": .object([
+                "type": .string("string"),
+                "description": .string("Your reply to the user, in Markdown. Omit this only on your very first call (which opens the conversation) and when resuming after a 'waiting' result."),
+            ]),
+            "continuation": .object([
+                "type": .string("string"),
+                "description": .string("Opaque token. Supply it, unchanged and alone, only when a previous result had status 'waiting'."),
+            ]),
+        ]),
+    ])
+
+    public static let outputSchema: Value = .object([
+        "type": .string("object"),
+        "required": .array([.string("status")]),
+        "properties": .object([
+            "status": .object([
+                "type": .string("string"),
+                "enum": .array([.string("prompt"), .string("waiting"), .string("ended")]),
+            ]),
+            "user_message": .object(["type": .string("string")]),
+            "turn": .object(["type": .string("integer")]),
+            "continuation": .object(["type": .string("string")]),
+            "reason": .object(["type": .string("string")]),
+        ]),
+    ])
+
+    public static func tool() -> Tool {
+        Tool(
+            name: name,
+            description: description,
+            inputSchema: inputSchema,
+            annotations: .init(
+                title: "Voice conversation",
+                readOnlyHint: false,
+                destructiveHint: false,
+                idempotentHint: false,
+                openWorldHint: true
+            )
+        )
+    }
+
+    public static func structuredContent(_ result: ConverseResult) -> Value {
+        var fields: [String: Value] = ["status": .string(result.status.rawValue)]
+        if let m = result.userMessage { fields["user_message"] = .string(m) }
+        if let t = result.turn { fields["turn"] = .int(t) }
+        if let c = result.continuation { fields["continuation"] = .string(c) }
+        if let r = result.reason { fields["reason"] = .string(r) }
+        return .object(fields)
+    }
+
+    /// R-MCP-11 layer A — keep the host's own timer alive while a call blocks.
+    /// Every transport needs the identical 5s ticker; only how it reaches the
+    /// current phase (`phaseMessage`) differs.
+    public static func startProgressTicker(
+        server: Server,
+        progressToken: ProgressToken?,
+        phaseMessage: @escaping @Sendable () async -> String
+    ) -> Task<Void, Never> {
+        Task {
+            guard let progressToken else { return }
+            var n = 0.0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                if Task.isCancelled { break }
+                n += 1
+                let text = await phaseMessage()
+                try? await server.notify(
+                    ProgressNotification.message(
+                        .init(progressToken: progressToken, progress: n, message: text)))
+            }
+        }
+    }
+}
