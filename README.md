@@ -93,6 +93,26 @@ Voice commands cover session control (`Send prompt`, `Stop`, `Play`, `Got it`), 
 
 All speech recognition runs on-device via Apple's `Speech` framework (`SpeechAnalyzer` / `SpeechTranscriber`); text-to-speech via `AVFoundation`'s `AVSpeechSynthesizer`. Nothing is sent to a network service.
 
+## Install from a release
+
+Download `VoiceChat-<version>.zip` from the [Releases](../../releases) page (it runs on both Apple silicon and Intel Macs), unzip it, and move `VoiceChat.app` to `/Applications`.
+
+**The app is not signed with an Apple Developer ID and is not notarised**, so macOS will refuse to open a downloaded copy ("VoiceChat is damaged and can't be opened" or "cannot be verified"). It isn't damaged; macOS is blocking it because of the quarantine flag your browser put on the download. Clear the flag once, after moving it into place:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/VoiceChat.app
+```
+
+Then open it normally. You can check the download first against the `.sha256` file on the release page:
+
+```bash
+shasum -a 256 -c VoiceChat-<version>.zip.sha256
+```
+
+The first time you start dictating, macOS will ask for Microphone and Speech Recognition access. Because the app is ad-hoc signed, macOS may ask again after you install an update.
+
+If you'd rather not trust a binary, the [Build & install](#build--install) section below builds the same app from source; a copy you build yourself never gets the quarantine flag.
+
 ## Build & install
 
 ```bash
@@ -189,6 +209,10 @@ this toggle tries to engineer around, which is why it's opt-in.
 | [`Spec.md`](Spec.md) | The normative specification — architecture, VCP, the session/turn state machine, text model, testing and acceptance criteria. |
 | [`Commands and Dictation.md`](Commands%20and%20Dictation.md) | The normative voice vocabulary — every recognized command and dictation directive. |
 | [`SETUP.md`](SETUP.md) | Minimal build-and-install steps (`make-app.sh`, where to copy the bundle). |
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
 
 ## Privacy
 

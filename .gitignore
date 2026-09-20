@@ -16,3 +16,6 @@ DerivedData/
 
 # Claude Code machine-specific settings (permissions, sandbox, enabled servers)
 .claude/settings.local.json
+
+# Release artefacts (produced by Scripts/release.sh)
+dist/

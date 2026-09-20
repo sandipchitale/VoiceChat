@@ -49,7 +49,7 @@ let client = VCPClient(channel: channel)
 
 let hello = try await client.call(
     .hello,
-    HelloParams(client: .init(name: "vcp-probe", version: "2.0.0",
+    HelloParams(client: .init(name: "vcp-probe", version: VoiceChatVersion.string,
                               pid: ProcessInfo.processInfo.processIdentifier)),
     as: HelloResult.self)
 say("connected to daemon \(hello.daemonVersion), vcp v\(hello.vcpVersion)")

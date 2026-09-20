@@ -7,6 +7,7 @@
 # descriptions in Info.plist.
 #
 #   Scripts/make-app.sh [debug|release]
+#   UNIVERSAL=1 Scripts/make-app.sh release     # arm64 + x86_64
 
 set -euo pipefail
 
@@ -16,9 +17,14 @@ BUILD="$ROOT/.build/$CONFIG"
 APP="$ROOT/.build/VoiceChat.app"
 BUNDLE_ID="dev.sandipchitale.voicechat"
 
-echo "==> Building ($CONFIG)"
-swift build -c "$CONFIG" --product voicechatd
-swift build -c "$CONFIG" --product voicechat-mcp
+ARCH_FLAGS=()
+if [ "${UNIVERSAL:-0}" = "1" ]; then
+    ARCH_FLAGS=(--arch arm64 --arch x86_64)
+fi
+
+echo "==> Building ($CONFIG${UNIVERSAL:+, universal})"
+swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --product voicechatd
+swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --product voicechat-mcp
 
 echo "==> Assembling $APP"
 rm -rf "$APP"

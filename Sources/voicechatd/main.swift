@@ -7,7 +7,7 @@ import VoiceChatUI
 // Spec §2.1 / §10 — the daemon process: menu bar applet, VCP listener, and
 // window host, all in one NSApplication (R-ARCH-1).
 
-let daemonVersion = "2.0.0"
+let daemonVersion = VoiceChatVersion.string
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -31,7 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "waveform.circle",
-                                           accessibilityDescription: "VoiceChat")
+                                           accessibilityDescription: "VoiceChat \(daemonVersion)")
+        statusItem.button?.toolTip = "VoiceChat \(daemonVersion)"
 
         server = DaemonServer(version: daemonVersion)
         server.onSessionsChanged = { [weak self] in self?.rebuildMenu() }
@@ -107,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
         statusItem.button?.image = NSImage(
             systemSymbolName: sessions.isEmpty ? "waveform.circle" : "waveform.circle.fill",
-            accessibilityDescription: "VoiceChat")
+            accessibilityDescription: "VoiceChat \(daemonVersion)")
     }
 
     private func disabled(_ title: String) -> NSMenuItem {
@@ -159,7 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// and commands can be checked without configuring anything.
     @objc private func startTestConversation() {
         let session = Session(id: "test-\(UUID().uuidString)",
-                              title: "VoiceChat — Test Conversation",
+                              title: nil,
                               hostName: "Test Conversation",
                               cwd: nil)
         testSessions.append(session)

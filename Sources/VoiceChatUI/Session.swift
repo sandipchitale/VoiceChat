@@ -32,7 +32,8 @@ public final class Session {
         self.model.hostName = hostName
         self.model.projectName = cwd.flatMap(Self.projectName(fromCwd:))
         self.model.workingDirectory = cwd.map { ($0 as NSString).abbreviatingWithTildeInPath }
-        let windowTitle = title ?? (model.sessionIdentity.map { "VoiceChat — \($0)" } ?? "VoiceChat")
+        let appName = "VoiceChat \(VoiceChatVersion.string)"
+        let windowTitle = title ?? model.sessionIdentity.map { "\(appName) — \($0)" } ?? appName
         self.windowController = ConversationWindowController(model: model, title: windowTitle)
 
         wire()
