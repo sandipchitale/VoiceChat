@@ -37,7 +37,19 @@ public final class Session {
         self.windowController = ConversationWindowController(model: model, title: windowTitle)
 
         wire()
+        observeMute()
         model.open()
+    }
+
+    /// The mute button lives in the shared window settings, so every session
+    /// follows it — muting is about the machine's audio, not one conversation.
+    private func observeMute() {
+        withObservationTracking {
+            _ = GlassSettings.shared.speechMuted
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeMute() }
+        }
+        speech.isMuted = GlassSettings.shared.speechMuted
     }
 
     /// The project a working directory names, or `nil` for the filesystem root.

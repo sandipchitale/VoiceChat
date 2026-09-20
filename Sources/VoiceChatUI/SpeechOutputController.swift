@@ -26,7 +26,20 @@ public final class SpeechOutputController: NSObject {
     public var pitch: Float = 1.0
     public var volume: Float = 1.0
 
+    /// Mute silences the audio but leaves the reading running — the highlight,
+    /// the timing and the auto-advance are all unchanged, so muting can never
+    /// strand or skip a turn. An utterance's volume is fixed the moment it is
+    /// queued, so changing this mid-reading re-issues the queue from the
+    /// sentence being read: that sentence starts over, silently or audibly.
+    public var isMuted = false {
+        didSet { if isMuted != oldValue { reissueQueue() } }
+    }
+
+    /// The volume utterances are queued with.
+    public var effectiveVolume: Float { isMuted ? 0 : volume }
+
     public private(set) var isSpeaking = false
+    private var currentSegment: Int?
 
     public override init() {
         super.init()
@@ -73,13 +86,17 @@ public final class SpeechOutputController: NSObject {
             return
         }
 
+        enqueue(speakable)
+    }
+
+    private func enqueue(_ speakable: [(offset: Int, element: SpeechSegment)]) {
         isSpeaking = true
         lastEnqueued = speakable.last!.offset
         for (index, segment) in speakable {
             let utterance = AVSpeechUtterance(string: segment.text)
             utterance.rate = rate
             utterance.pitchMultiplier = pitch
-            utterance.volume = volume
+            utterance.volume = effectiveVolume
             utterance.postUtteranceDelay = segment.postDelay
             if let voiceIdentifier, let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
                 utterance.voice = voice
@@ -87,6 +104,18 @@ public final class SpeechOutputController: NSObject {
             utteranceSegment[ObjectIdentifier(utterance)] = index
             synthesizer.speak(utterance)
         }
+    }
+
+    /// Not a stop: `stopping` stays false, so the cancellations this causes are
+    /// ignored and nothing reaches the state machine.
+    private func reissueQueue() {
+        guard isSpeaking else { return }
+        let resume = currentSegment ?? 0
+        synthesizer.stopSpeaking(at: .immediate)
+        utteranceSegment.removeAll()
+        let remaining = segments.enumerated().filter { $0.element.isSpoken && $0.offset >= resume }
+        guard !remaining.isEmpty else { return }
+        enqueue(remaining)
     }
 
     public func stop() {
@@ -97,6 +126,7 @@ public final class SpeechOutputController: NSObject {
         stopping = true
         synthesizer.stopSpeaking(at: .immediate)
         isSpeaking = false
+        currentSegment = nil
         onHighlight?(nil)
         utteranceSegment.removeAll()
     }
@@ -112,6 +142,7 @@ extension SpeechOutputController: AVSpeechSynthesizerDelegate {
         let key = ObjectIdentifier(utterance)
         Task { @MainActor in
             guard let index = self.utteranceSegment[key], index < self.segments.count else { return }
+            self.currentSegment = index
             let segment = self.segments[index]
             // The utterance string can carry a prefix ("Quote: "), so clamp
             // rather than trusting the offset to land inside the document.
@@ -128,6 +159,7 @@ extension SpeechOutputController: AVSpeechSynthesizerDelegate {
             guard let index = self.utteranceSegment[key] else { return }
             guard index == self.lastEnqueued, !self.stopping else { return }
             self.isSpeaking = false
+            self.currentSegment = nil
             self.onHighlight?(nil)
             self.utteranceSegment.removeAll()
             self.onFinished?()

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build the distributable zip for a GitHub release.
 #
-#   Scripts/release.sh 0.0.1
+#   Scripts/release.sh 0.0.2
 #
 # The app is ad-hoc signed, not Developer ID signed or notarised, so macOS
 # quarantines a downloaded copy and Gatekeeper refuses it until the person
@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-VERSION="${1:?usage: Scripts/release.sh <version>   e.g. 0.0.1}"
+VERSION="${1:?usage: Scripts/release.sh <version>   e.g. 0.0.2}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/.build/VoiceChat.app"
 DIST="$ROOT/dist"

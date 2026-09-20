@@ -9,6 +9,7 @@ public struct ConversationView: View {
     @Bindable var model: ConversationModel
     let title: String
     let onCloseWindow: () -> Void
+    @Bindable private var glassSettings = GlassSettings.shared
     @State private var showingCommandHelp = false
     @Environment(\.colorScheme) private var scheme
 
@@ -267,8 +268,7 @@ public struct ConversationView: View {
 
     private var responseFooter: some View {
         HStack(spacing: 12) {
-            Image(systemName: model.machine.isSpeaking ? "waveform" : "speaker.wave.2")
-                .foregroundStyle(model.machine.isSpeaking ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+            MuteButton(isMuted: $glassSettings.speechMuted, isSpeaking: model.machine.isSpeaking)
 
             Text(model.responseStatusText)
                 .font(Metrics.captionFont)

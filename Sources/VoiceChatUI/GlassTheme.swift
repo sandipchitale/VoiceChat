@@ -63,6 +63,7 @@ final class GlassSettings {
     private static let key = "VoiceChatGlassOpacity"
     private static let themeKey = "VoiceChatTheme"
     private static let alwaysOnTopKey = "VoiceChatAlwaysOnTop"
+    private static let speechMutedKey = "VoiceChatSpeechMuted"
 
     var theme: GlassTheme {
         didSet { UserDefaults.standard.set(theme.rawValue, forKey: Self.themeKey) }
@@ -73,6 +74,14 @@ final class GlassSettings {
     /// tool call — but the pin in the header lets the person opt out.
     var alwaysOnTop: Bool {
         didSet { UserDefaults.standard.set(alwaysOnTop, forKey: Self.alwaysOnTopKey) }
+    }
+
+    /// Whether replies are read silently. Shared by every conversation window
+    /// (it is about the machine's audio, not one conversation) and remembered,
+    /// with the button's state always visible so a silent reply is never a
+    /// mystery.
+    var speechMuted: Bool {
+        didSet { UserDefaults.standard.set(speechMuted, forKey: Self.speechMutedKey) }
     }
 
     /// 0 is as see-through as the glass gets, 1 is nearly solid.
@@ -90,6 +99,7 @@ final class GlassSettings {
         opacity = min(max(stored ?? 0.35, 0), 1)
         theme = UserDefaults.standard.string(forKey: Self.themeKey).flatMap(GlassTheme.init) ?? .system
         alwaysOnTop = UserDefaults.standard.object(forKey: Self.alwaysOnTopKey) as? Bool ?? true
+        speechMuted = UserDefaults.standard.bool(forKey: Self.speechMutedKey)
     }
 }
 
@@ -228,6 +238,34 @@ struct PinButton: View {
         .accessibilityValue(isPinned ? "On" : "Off")
         .accessibilityAddTraits(.isToggle)
         .padding(.trailing, 6)
+    }
+}
+
+/// Silences the reading without stopping it: the highlight, the timing and the
+/// auto-advance all carry on, just without sound.
+struct MuteButton: View {
+    @Binding var isMuted: Bool
+    let isSpeaking: Bool
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button { isMuted.toggle() } label: {
+            Image(systemName: isMuted ? "speaker.slash.fill" : (isSpeaking ? "waveform" : "speaker.wave.2.fill"))
+                .font(.system(size: 11))
+                .foregroundStyle(isMuted ? AnyShapeStyle(Glass.danger)
+                                         : (isSpeaking ? AnyShapeStyle(scheme.accentText) : AnyShapeStyle(.secondary)))
+                .frame(width: 26, height: 22)
+                .background(Capsule().fill(isMuted ? Glass.danger.opacity(0.18) : scheme.ink.opacity(0.06)))
+                .overlay(Capsule().strokeBorder(isMuted ? Glass.danger.opacity(0.5) : scheme.hairline))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut("m", modifiers: [.command, .shift])
+        .help(isMuted ? "Muted — click to hear replies again (⇧⌘M)"
+                      : "Click to read replies silently (⇧⌘M)")
+        .accessibilityLabel("Mute speech")
+        .accessibilityValue(isMuted ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
     }
 }
 

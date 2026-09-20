@@ -301,11 +301,11 @@ connection whose first message is anything else.
 // →
 {"jsonrpc":"2.0","id":1,"method":"hello","params":{
   "vcpVersion": 1,
-  "client":  {"name":"voicechat-mcp","version":"0.0.1","pid":48213},
+  "client":  {"name":"voicechat-mcp","version":"0.0.2","pid":48213},
   "host":    {"name":"claude-code","version":"2.1.270"}   // from MCP initialize, may be null
 }}
 // ←
-{"jsonrpc":"2.0","id":1,"result":{"vcpVersion":1,"daemonVersion":"0.0.1"}}
+{"jsonrpc":"2.0","id":1,"result":{"vcpVersion":1,"daemonVersion":"0.0.2"}}
 ```
 
 `R-VCP-4` Version negotiation is exact-match on `vcpVersion`. A mismatch **MUST** be answered with
@@ -1430,7 +1430,7 @@ permissions rows, Settings, Show Log, and Start at Login are not implemented (th
 [§12.3](#123-logging), which is simpler than designed):
 
 ```
-  VoiceChat 0.0.1
+  VoiceChat 0.0.2
   ─────────────────────────────────
   2 conversations open
       claude-code — turn 3
