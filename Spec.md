@@ -863,6 +863,14 @@ above — purely decorative text, hidden when absent. It **MUST NOT** carry Send
 those belong to their panes. The speech-output popover and settings button of the earlier toolbar design are not
 implemented.
 
+Beside the pin sits a layout button (⌥⌘L) that arranges the two panes side by side or stacked, prompt
+above response. Its icon shows the layout a click switches to, not the current one, which is already
+visible. Between the panes is a divider the person drags to set the proportion; double-clicking it
+splits the space evenly. It never lets a pane shrink below its minimum (420 pt wide side by side, 180 pt
+tall stacked). The layout and a separate proportion for each layout are shared by all conversation windows
+and persisted in `UserDefaults` (`VoiceChatPaneLayout`, default side by side; `VoiceChatSideBySideSplit`
+and `VoiceChatStackedSplit`, default 0.5).
+
 `R-UI-3` The window **MUST** be resizable to the minimum size without clipping any control, without
 horizontal scrolling of the layout, and without the footer bars wrapping. At minimum width each pane
 is 420 pt wide; footer buttons collapse to icon-only with tooltips below 480 pt of pane width.

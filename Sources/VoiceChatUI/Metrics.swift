@@ -18,6 +18,8 @@ public enum Metrics {
     public static let historyExpandedHeight: CGFloat = 160
 
     public static let minPaneWidth: CGFloat = 420
+    /// A stacked pane's floor: its header, a few lines of text and its footer.
+    public static let minPaneHeight: CGFloat = 180
     public static let defaultWindowSize = CGSize(width: 1360, height: 860)
     public static let minWindowSize = CGSize(width: 1040, height: 680)
 

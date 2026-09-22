@@ -63,6 +63,26 @@ enum GlassTheme: String, CaseIterable, Identifiable {
     }
 }
 
+/// How the two panes are arranged: prompt beside the response, or above it.
+enum PaneLayout: String, CaseIterable, Identifiable {
+    case sideBySide, stacked
+
+    var id: String { rawValue }
+
+    /// The axis the panes are laid out along.
+    var axis: Axis { self == .sideBySide ? .horizontal : .vertical }
+
+    /// A picture of this arrangement.
+    var symbol: String {
+        switch self {
+        case .sideBySide: "rectangle.split.2x1"
+        case .stacked:    "rectangle.split.1x2"
+        }
+    }
+
+    var toggled: PaneLayout { self == .sideBySide ? .stacked : .sideBySide }
+}
+
 /// The glass's opacity and theme, shared by every conversation window and
 /// remembered across launches. Opacity only moves the backdrops — text and
 /// controls stay crisp.
@@ -73,6 +93,31 @@ final class GlassSettings {
     private static let themeKey = "VoiceChatTheme"
     private static let alwaysOnTopKey = "VoiceChatAlwaysOnTop"
     private static let speechMutedKey = "VoiceChatSpeechMuted"
+    private static let paneLayoutKey = "VoiceChatPaneLayout"
+    private static let sideBySideSplitKey = "VoiceChatSideBySideSplit"
+    private static let stackedSplitKey = "VoiceChatStackedSplit"
+
+    /// Side by side or stacked, from the header's layout button.
+    var paneLayout: PaneLayout {
+        didSet { UserDefaults.standard.set(paneLayout.rawValue, forKey: Self.paneLayoutKey) }
+    }
+
+    /// The prompt pane's share of the split, 0…1, remembered separately for
+    /// each layout — a good width split is rarely a good height split.
+    var sideBySideSplit: Double {
+        didSet { UserDefaults.standard.set(sideBySideSplit, forKey: Self.sideBySideSplitKey) }
+    }
+    var stackedSplit: Double {
+        didSet { UserDefaults.standard.set(stackedSplit, forKey: Self.stackedSplitKey) }
+    }
+
+    /// The split for whichever layout is current.
+    var paneSplit: Double {
+        get { paneLayout == .sideBySide ? sideBySideSplit : stackedSplit }
+        set {
+            if paneLayout == .sideBySide { sideBySideSplit = newValue } else { stackedSplit = newValue }
+        }
+    }
 
     var theme: GlassTheme {
         didSet { UserDefaults.standard.set(theme.rawValue, forKey: Self.themeKey) }
@@ -109,6 +154,14 @@ final class GlassSettings {
         theme = UserDefaults.standard.string(forKey: Self.themeKey).flatMap(GlassTheme.init) ?? .system
         alwaysOnTop = UserDefaults.standard.object(forKey: Self.alwaysOnTopKey) as? Bool ?? true
         speechMuted = UserDefaults.standard.bool(forKey: Self.speechMutedKey)
+        paneLayout = UserDefaults.standard.string(forKey: Self.paneLayoutKey).flatMap(PaneLayout.init) ?? .sideBySide
+        sideBySideSplit = Self.storedSplit(Self.sideBySideSplitKey)
+        stackedSplit = Self.storedSplit(Self.stackedSplitKey)
+    }
+
+    private static func storedSplit(_ key: String) -> Double {
+        let stored = UserDefaults.standard.object(forKey: key) as? Double
+        return min(max(stored ?? 0.5, 0), 1)
     }
 }
 
@@ -203,6 +256,8 @@ struct HUDHeader: View {
                     .help("Model and app driving this conversation")
             }
 
+            LayoutButton(layout: $settings.paneLayout)
+
             PinButton(isPinned: $settings.alwaysOnTop)
 
             ThemePicker(selection: $settings.theme)
@@ -238,6 +293,39 @@ struct GlassDivider: View {
 
     var body: some View {
         Rectangle().fill(scheme.hairline).frame(height: 1)
+    }
+}
+
+/// Switches the panes between side by side and stacked. The current layout
+/// is already on screen, so the icon shows the one a click switches *to*.
+/// It is an action, not a state, so it reads at full strength rather than in
+/// the muted style of an off toggle.
+struct LayoutButton: View {
+    @Binding var layout: PaneLayout
+    @State private var isHovering = false
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button { layout = layout.toggled } label: {
+            Image(systemName: layout.toggled.symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(isHovering ? AnyShapeStyle(scheme.accentText)
+                                            : AnyShapeStyle(.primary.opacity(0.85)))
+                .frame(width: 26, height: 22)
+                .background(Capsule().fill(isHovering ? Glass.accent.opacity(0.22)
+                                                      : scheme.ink.opacity(0.10)))
+                .overlay(Capsule().strokeBorder(isHovering ? Glass.accent.opacity(0.6)
+                                                           : scheme.hairline))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .keyboardShortcut("l", modifiers: [.command, .option])
+        .help(layout == .sideBySide
+              ? "Stack the panes top and bottom (⌥⌘L)"
+              : "Put the panes side by side (⌥⌘L)")
+        .accessibilityLabel(layout == .sideBySide ? "Stack panes top and bottom"
+                                                  : "Put panes side by side")
     }
 }
 

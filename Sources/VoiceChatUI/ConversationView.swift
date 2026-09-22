@@ -32,8 +32,12 @@ public struct ConversationView: View {
                 HistoryPeekBar { model.returnToCurrentTurn() }     // R-UI-11
             }
 
-            HSplitView {
+            PaneSplitView(axis: glassSettings.paneLayout.axis,
+                          fraction: $glassSettings.paneSplit,
+                          minFirst: minPaneLength,
+                          minSecond: minPaneLength) {
                 promptPane
+            } second: {
                 responsePane
             }
             .padding(Metrics.outerPadding)
@@ -80,6 +84,12 @@ public struct ConversationView: View {
 
     // MARK: Panes
 
+    /// R-UI-3 — the narrowest a pane may be dragged: its width side by side,
+    /// its height when stacked.
+    private var minPaneLength: CGFloat {
+        glassSettings.paneLayout == .sideBySide ? Metrics.minPaneWidth : Metrics.minPaneHeight
+    }
+
     private var promptPane: some View {
         Pane(
             title: "Compose prompt (edit or dictate)",
@@ -103,7 +113,6 @@ public struct ConversationView: View {
             footer: { promptFooter },
             notice: { permissionNotice }
         )
-        .frame(minWidth: Metrics.minPaneWidth)
     }
 
     private var promptFooter: some View {
@@ -265,7 +274,6 @@ public struct ConversationView: View {
             footer: { responseFooter },
             notice: { EmptyView() }
         )
-        .frame(minWidth: Metrics.minPaneWidth)
     }
 
     private var responseFooter: some View {
@@ -400,7 +408,6 @@ struct Pane<Editor: View, Footer: View, Notice: View>: View {
             )
             .shadow(color: isActive ? Glass.accent.opacity(0.35) : .clear, radius: 12)
         }
-        .padding(.horizontal, Metrics.paneGap / 2)
     }
 }
 
