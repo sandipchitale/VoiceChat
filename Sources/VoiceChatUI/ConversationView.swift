@@ -320,6 +320,9 @@ public struct ConversationView: View {
                 .font(Metrics.captionFont)
                 .foregroundStyle(.tertiary)
                 .help(model.workingDirectory ?? "")
+            if !model.roots.isEmpty {
+                RootsButton(roots: model.roots)
+            }
             Spacer()
             if model.state.isTerminal {
                 // R-UI-20-adjacent — once ended there is nothing left to
@@ -340,6 +343,84 @@ public struct ConversationView: View {
         }
         .padding(.horizontal, Metrics.outerPadding)
         .frame(height: Metrics.bottomBarHeight)
+    }
+}
+
+/// R-UI-29 — the host's MCP roots, listed in a popover from the bottom bar.
+/// Shown only when the host reported some: most conversations have none.
+struct RootsButton: View {
+    let roots: [WorkspaceRoot]
+    @State private var isShowing = false
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button { isShowing.toggle() } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "folder")
+                Text("\(roots.count)")
+            }
+            .font(Metrics.captionFont)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(scheme.ink.opacity(0.08)))
+            .overlay(Capsule().strokeBorder(scheme.hairline))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(roots.count == 1 ? "1 workspace root the host is working in"
+                               : "\(roots.count) workspace roots the host is working in")
+        .accessibilityLabel("Workspace roots")
+        .accessibilityValue("\(roots.count)")
+        .popover(isPresented: $isShowing, arrowEdge: .top) {
+            RootsPopover(roots: roots)
+        }
+    }
+}
+
+struct RootsPopover: View {
+    let roots: [WorkspaceRoot]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Workspace roots")
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .textCase(.uppercase)
+                .tracking(1.2)
+                .foregroundStyle(.secondary)
+            Text("Reported by the app driving this conversation.")
+                .font(Metrics.captionFont)
+                .foregroundStyle(.tertiary)
+
+            ForEach(roots) { root in
+                HStack(spacing: 8) {
+                    Image(systemName: "folder.fill")
+                        .foregroundStyle(Glass.accent)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(root.displayName)
+                            .font(.system(size: 12, weight: .medium))
+                        Text(root.displayPath)
+                            .font(Metrics.captionFont)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    Spacer(minLength: 12)
+                    if let path = root.path {
+                        // A root is a folder on this Mac; opening it is the one
+                        // thing there is to do with it here.
+                        Button("Reveal") {
+                            NSWorkspace.shared.activateFileViewerSelecting(
+                                [URL(fileURLWithPath: path)])
+                        }
+                        .buttonStyle(.link)
+                        .font(Metrics.captionFont)
+                        .help("Show this folder in the Finder")
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(minWidth: 320, maxWidth: 520, alignment: .leading)
     }
 }
 

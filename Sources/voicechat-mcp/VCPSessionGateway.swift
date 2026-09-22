@@ -32,12 +32,37 @@ actor VCPSessionGateway: ConverseSessionGateway {
     /// The MCP host, as it named itself in `initialize`. Set before any
     /// `converse` call can arrive, since `initialize` always comes first.
     private var host: HelloParams.Peer?
+    /// Asks the MCP client for its roots. Set only when the client said in
+    /// `initialize` that it supports them.
+    private var rootsProvider: (@Sendable () async -> [WorkspaceRoot])?
+    private var sessionId: String?
 
     init(socketPath: String) {
         self.socketPath = socketPath
     }
 
     func setHost(_ host: HelloParams.Peer) { self.host = host }
+
+    func setRootsProvider(_ provider: @escaping @Sendable () async -> [WorkspaceRoot]) {
+        self.rootsProvider = provider
+    }
+
+    /// Fetches the host's roots and hands them to the window. Runs detached
+    /// from the conversation: roots are decoration, so a host that is slow to
+    /// answer — or answers not at all — must not delay a turn.
+    func refreshRoots() {
+        guard let rootsProvider else { return }
+        Task { [weak self] in
+            let roots = await rootsProvider()
+            await self?.sendRoots(roots)
+        }
+    }
+
+    private func sendRoots(_ roots: [WorkspaceRoot]) async {
+        guard let client, let sessionId, !roots.isEmpty else { return }
+        _ = try? await client.callRaw(.sessionRoots,
+                                      SessionRootsParams(sessionId: sessionId, roots: roots))
+    }
 
     func openSession(
         model: String?,
@@ -75,6 +100,9 @@ actor VCPSessionGateway: ConverseSessionGateway {
         catch { throw ConverseTransportError.transport("\(error)") }
 
         Task { [weak self] in await self?.consumeNotifications(client, onEnded: onEnded, onProgress: onProgress) }
+
+        sessionId = opened.sessionId
+        refreshRoots()
 
         return (opened.sessionId, opened.turnId)
     }
@@ -121,6 +149,7 @@ actor VCPSessionGateway: ConverseSessionGateway {
         _ = try? await client.callRaw(.sessionClose, SessionCloseParams(sessionId: sessionId, reason: reason))
         await client.close()
         self.client = nil
+        self.sessionId = nil
     }
 
     /// R-MCP-17 — the conversation already ended; there is nothing left to
@@ -128,6 +157,7 @@ actor VCPSessionGateway: ConverseSessionGateway {
     func discardSession() async {
         await client?.close()
         client = nil
+        sessionId = nil
     }
 }
 

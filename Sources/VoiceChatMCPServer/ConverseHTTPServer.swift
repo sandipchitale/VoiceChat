@@ -74,8 +74,15 @@ public actor ConverseHTTPServer {
             }
             // Each HTTP session is its own MCP connection, so it names its
             // own host in its own `initialize`.
-            let initializeHook: HTTPApp.InitializeHook = { client, _ in
+            let initializeHook: HTTPApp.InitializeHook = { client, capabilities in
                 await gateway.setHost(MCPHostName.display(name: client.name, title: client.title))
+                if capabilities.roots != nil {
+                    await gateway.setRootsProvider { await WorkspaceRoots.fetch(from: server) }
+                }
+            }
+
+            await server.onNotification(RootsListChangedNotification.self) { _ in
+                await gateway.refreshRoots()
             }
             return (server, onClose, initializeHook)
         }

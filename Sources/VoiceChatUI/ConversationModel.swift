@@ -63,6 +63,13 @@ public final class ConversationModel {
     /// the pane shows that turn's own response instead.
     public var showsPreviousResponse: Bool { responseIsPrevious && !isViewingHistory }
 
+    /// R-UI-29 — the folders the host says this conversation is about, shown
+    /// in the bottom bar. Empty when the host reports no roots, or does not
+    /// support them at all.
+    public private(set) var roots: [WorkspaceRoot] = []
+
+    public func setRoots(_ roots: [WorkspaceRoot]) { self.roots = roots }
+
     public var hostName: String?
     /// The last path component of the host's working directory, if known — the
     /// "project" this conversation belongs to.

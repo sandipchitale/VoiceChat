@@ -332,6 +332,7 @@ lifetime so that a second instance refuses to start rather than stealing the soc
 | `turn.await` | see [§3.4](#34-turnawait) | see [§3.4](#34-turnawait) |
 | `turn.cancel` | `{sessionId, turnId}` | `{}` |
 | `session.close` | `{sessionId, reason}` | `{}` |
+| `session.roots` | `{sessionId, roots: [{uri, name?}]}` | `{}` — the host's MCP roots, sent after the session opens and again on `notifications/roots/list_changed` |
 | `ping` | `{}` | `{}` |
 
 **Daemon → client (notifications, no `id`):**
@@ -967,6 +968,7 @@ Expanded content: a list of committed turns, one row each —
 | `R-UI-12` | Returning restores the live turn's content exactly, including unsent draft text and cursor position — **unless** the peeked prompt was edited and sent (R-UI-27), in which case the send supersedes the draft and there is nothing to return to restore. |
 | `R-UI-13` | History covers the **current conversation only**. It is held in memory and discarded when the session ends. |
 | `R-UI-14` | **Export…** writes a Markdown transcript to a user-chosen location via `NSSavePanel`. This is the only path by which conversation content reaches disk. |
+| `R-UI-29` | When the MCP client declares the `roots` capability, the server asks it for its roots (`roots/list`) and forwards them to the window, refreshing on `notifications/roots/list_changed`. The bottom bar then shows a folder chip with the count, opening a popover that lists each root's name and path, each revealable in the Finder. The fetch is off the conversation's path and abandoned after 5 s, so a host that answers slowly or not at all never delays a turn; a host reporting no roots, or not supporting them, shows no chip. |
 | `R-UI-27` | A past prompt is not a museum piece: while it is loaded and the session is in `Composing`, it can be edited and sent like any other prompt, producing a new turn. This is deliberately not "read-only history" — the only immutable half of a past turn is the response that was actually said. |
 
 ### 6.6 Control enablement matrix

@@ -32,6 +32,7 @@ public enum VCPMethod: String, Sendable, Codable {
     case turnAwait = "turn.await"
     case turnCancel = "turn.cancel"
     case sessionClose = "session.close"
+    case sessionRoots = "session.roots"
     case ping
 
     // Daemon → client (notifications)
@@ -218,6 +219,16 @@ public struct TurnRefParams: Sendable, Codable, Equatable {
     public var turnId: String
     public init(sessionId: String, turnId: String) {
         self.sessionId = sessionId; self.turnId = turnId
+    }
+}
+
+/// The MCP roots the host reported for a session. Sent after the session
+/// opens, and again whenever the host says its roots changed.
+public struct SessionRootsParams: Sendable, Codable, Equatable {
+    public var sessionId: String
+    public var roots: [WorkspaceRoot]
+    public init(sessionId: String, roots: [WorkspaceRoot]) {
+        self.sessionId = sessionId; self.roots = roots
     }
 }
 

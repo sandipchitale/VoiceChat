@@ -141,6 +141,7 @@ final class PeerConnection {
             case .turnAwait:    try handleTurnAwait(id: id, params: params)
             case .turnCancel:   try handleTurnCancel(id: id, params: params)
             case .sessionClose: try handleSessionClose(id: id, params: params)
+            case .sessionRoots: try handleSessionRoots(id: id, params: params)
             case .sessionEnded, .turnProgress:
                 reply(id: id, error: VCPError(code: VCPError.Code.methodNotFound,
                                               message: "server_to_client_only"))
@@ -215,6 +216,16 @@ final class PeerConnection {
             await session.coordinator.cancelTurn(request.turnId)
             session.endFromPeer(.hostCancelled)
         }
+        try send(VCPCodec.response(id: id, result: EmptyPayload()))
+    }
+
+    private func handleSessionRoots(id: Int, params: Data) throws {
+        let request = try VCPCodec.decodePayload(SessionRootsParams.self, from: params)
+        guard let session = server.session(request.sessionId) else {
+            reply(id: id, error: .unknownSession)
+            return
+        }
+        session.setRoots(request.roots)
         try send(VCPCodec.response(id: id, result: EmptyPayload()))
     }
 

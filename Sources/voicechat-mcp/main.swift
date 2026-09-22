@@ -87,10 +87,20 @@ func installSignalHandlers() {
 nonisolated(unsafe) var signalSources: [DispatchSourceSignal] = []
 installSignalHandlers()
 
+// The host's roots name the folders this conversation is about — better than
+// this process's own working directory, and the only such signal a host that
+// supports roots offers.
+await server.onNotification(RootsListChangedNotification.self) { _ in
+    await gateway.refreshRoots()
+}
+
 let transport = StdioTransport()
-try await server.start(transport: transport, initializeHook: { client, _ in
+try await server.start(transport: transport, initializeHook: { client, capabilities in
     await gateway.setHost(.init(name: MCPHostName.display(name: client.name, title: client.title),
                                 version: client.version))
+    if capabilities.roots != nil {
+        await gateway.setRootsProvider { await WorkspaceRoots.fetch(from: server) }
+    }
 })
 await server.waitUntilCompleted()
 await engine.shutdown(reason: .mcpExit)

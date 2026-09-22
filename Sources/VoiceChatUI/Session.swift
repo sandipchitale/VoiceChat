@@ -161,6 +161,10 @@ public final class Session {
 
     public func show() { windowController.present() }
 
+    /// The host's MCP roots, reported after the session opened and whenever
+    /// they change.
+    public func setRoots(_ roots: [WorkspaceRoot]) { model.setRoots(roots) }
+
     /// The caller may identify itself differently on every `converse` call
     /// — refreshed once per turn, right before
     /// the daemon starts awaiting that turn.

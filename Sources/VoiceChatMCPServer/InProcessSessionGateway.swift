@@ -14,6 +14,7 @@ import VoiceChatUI
 public final class InProcessSessionGateway: ConverseSessionGateway, @unchecked Sendable {
     private let server: DaemonServer
     private var host: String?
+    private var rootsProvider: (@Sendable () async -> [WorkspaceRoot])?
     private let cwd: String?
     private var session: Session?
 
@@ -25,6 +26,22 @@ public final class InProcessSessionGateway: ConverseSessionGateway, @unchecked S
 
     /// The MCP host, as it named itself in `initialize` for this HTTP session.
     public func setHost(_ host: String) { self.host = host }
+
+    /// Set only when the client declared the roots capability.
+    public func setRootsProvider(_ provider: @escaping @Sendable () async -> [WorkspaceRoot]) {
+        self.rootsProvider = provider
+    }
+
+    /// Detached from the conversation, for the same reason as the VCP
+    /// gateway's: a host that never answers must not hold up a turn.
+    public func refreshRoots() {
+        guard let rootsProvider, let session else { return }
+        Task { @MainActor in
+            let roots = await rootsProvider()
+            guard !roots.isEmpty else { return }
+            session.setRoots(roots)
+        }
+    }
 
     public func openSession(
         model: String?,
@@ -41,6 +58,7 @@ public final class InProcessSessionGateway: ConverseSessionGateway, @unchecked S
         session.onEnded = { _, reason in Task { await onEnded(reason) } }
         session.onProgress = { _, phase in Task { await onProgress(phase) } }
         self.session = session
+        refreshRoots()
         return (id, session.firstTurnId)
     }
 
