@@ -257,7 +257,8 @@ public struct ConversationView: View {
                                  onUserEdit: { model.clearVolatile() },
                                  onMakeTextView: { model.registerTextView(.response, $0) },
                                  caretRequest: model.responseCaretRequest)
-                    PlaceholderOverlay(text: "Type text here or wait for a response…",
+                        .opacity(model.showsPreviousResponse ? 0.55 : 1)
+                    PlaceholderOverlay(text: model.responsePlaceholder,
                                        isVisible: model.plainResponse.isEmpty)
                 }
             },

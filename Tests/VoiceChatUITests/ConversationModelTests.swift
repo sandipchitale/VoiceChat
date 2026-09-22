@@ -43,15 +43,67 @@ struct ConversationModelTests {
         #expect(entry.responsePreview.contains("tell me a joke"))
     }
 
-    @Test("R-FSM-9 — committing a turn clears both panes and advances")
-    func commitClearsPanes() {
+    @Test("R-FSM-9 — committing a turn clears the prompt, keeps the response as context")
+    func commitClearsPromptKeepsResponse() {
         let m = modelAtResponse("an answer")
         #expect(m.turn == 1)
         m.gotIt()
         #expect(m.turn == 2)
         #expect(m.plainPrompt.isEmpty)
-        #expect(m.plainResponse.isEmpty)
+        #expect(m.plainResponse == "an answer", "the answer being replied to stays visible")
+        #expect(m.showsPreviousResponse)
+        #expect(!m.responseIsEditable, "previous-turn context is read-only")
         #expect(m.state == .composing)
+    }
+
+    @Test("R-FSM-9 — the next response replaces the previous one")
+    func nextResponseReplacesPrevious() {
+        let m = modelAtResponse("first answer")
+        m.gotIt()
+        m.promptText = NSAttributedString(string: "and another")
+        m.send()
+        #expect(m.plainResponse == "first answer", "context stays up while waiting")
+        m.present(response: "second answer")
+        #expect(m.plainResponse == "second answer")
+        #expect(!m.showsPreviousResponse)
+        #expect(m.responseIsEditable)
+    }
+
+    @Test("R-FSM-9 — an empty response clears the previous one rather than standing in for it")
+    func emptyResponseClearsPrevious() {
+        let m = modelAtResponse("first answer")
+        m.gotIt()
+        m.promptText = NSAttributedString(string: "and another")
+        m.send()
+        m.present(response: "   ")
+        #expect(m.plainResponse.isEmpty)
+        #expect(!m.showsPreviousResponse)
+        #expect(m.history.last?.response.trimmingCharacters(in: .whitespaces).isEmpty == true)
+    }
+
+    @Test("the empty response pane says what it is for and is read-only until a response arrives")
+    func emptyResponsePane() {
+        let m = ConversationModel()
+        m.open()
+        #expect(m.responsePlaceholder == "The response will appear here.")
+        #expect(!m.responseIsEditable, "typing here before a response would be silently lost")
+        m.promptText = NSAttributedString(string: "hello")
+        m.send()
+        #expect(m.responsePlaceholder == "Waiting for the response…")
+        #expect(!m.responseIsEditable)
+        m.present(response: "hi")
+        #expect(m.responseIsEditable)
+    }
+
+    @Test("peeking at history does not dim that turn's response")
+    func historyPeekIsNotDimmed() {
+        let m = modelAtResponse("an answer")
+        m.gotIt()
+        m.showHistoryTurn(1)
+        #expect(!m.showsPreviousResponse)
+        m.returnToCurrentTurn()
+        #expect(m.showsPreviousResponse)
+        #expect(m.plainResponse == "an answer")
     }
 
     @Test("R-UI-12 — returning from history restores the draft exactly")

@@ -782,7 +782,7 @@ Each of these is directly assertable in tests.
 | `R-FSM-6` | In `Composing` the left pane is first responder; in `Responding.*` the right pane is first responder. |
 | `R-FSM-7` | The turn counter increases only on rows 7, 8, and 13, and only by one. |
 | `R-FSM-8` | `Ended` is terminal. No event moves out of it. Every event other than window-close is ignored. |
-| `R-FSM-9` | Entering `Composing` for turn *n*+1 commits turn *n* (prompt and response) to the history strip and clears both panes. |
+| `R-FSM-9` | Entering `Composing` for turn *n*+1 commits turn *n* (prompt and response) to the history strip and clears the prompt pane. The response pane keeps turn *n*'s response, dimmed and read-only, as context until the next response arrives. |
 | `R-FSM-10` | Pane editability follows [§6.6](#66-control-enablement-matrix) by state alone; viewing a past turn (R-UI-11) does not add a further restriction to the **prompt** pane, but the **response** pane is additionally read-only whenever a past turn is displayed, since what was already said cannot be revised. |
 
 ### 5.4 Edge cases
@@ -922,7 +922,7 @@ status text reads `Nothing to send yet`.
 
 Header status chip: `Waiting`, `Speaking`, `Paused`, `Read`.
 
-Placeholder when empty: `Type text here or wait for a response…`.
+Placeholder when empty: `Waiting for the response…` while `Submitted`, otherwise `The response will appear here.` The pane is editable only while `Responding`; before a response arrives there is nothing to edit, and text typed there would be neither sent nor played.
 
 Footer, leading to trailing:
 

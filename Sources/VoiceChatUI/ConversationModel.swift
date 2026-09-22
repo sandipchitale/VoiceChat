@@ -55,6 +55,13 @@ public final class ConversationModel {
     /// The rendered text as first shown. Comparing the pane against the raw
     /// Markdown instead would mark every formatted response as edited.
     private var presentedResponse: String = ""
+    /// The response pane is still showing the last turn's answer, kept as
+    /// read-only context while the person composes a reply. Replaced as soon
+    /// as the next response arrives.
+    public private(set) var responseIsPrevious = false
+    /// Previous-turn context is dimmed, except while peeking at history, where
+    /// the pane shows that turn's own response instead.
+    public var showsPreviousResponse: Bool { responseIsPrevious && !isViewingHistory }
 
     public var hostName: String?
     /// The last path component of the host's working directory, if known — the
@@ -155,6 +162,7 @@ public final class ConversationModel {
         case .submitted:        return "Waiting…"
         case .respondingAuto:   return "Speaking…"
         case .respondingManual: return machine.isSpeaking ? "Speaking…" : "Paused"
+        case .composing:        return responseIsPrevious ? "Previous response" : ""
         default:                return ""
         }
     }
@@ -165,7 +173,16 @@ public final class ConversationModel {
     /// earlier turn, so that turn's prompt can be revised and resent as a new
     /// one. The response pane does not: what was already said is immutable.
     public var promptIsEditable: Bool { machine.state == .composing }
-    public var responseIsEditable: Bool { !machine.state.isTerminal && !isViewingHistory }
+    /// Only a response that has actually arrived can be edited: text typed
+    /// into an empty pane before then is never sent, played or kept.
+    public var responseIsEditable: Bool {
+        machine.state.isResponding && !isViewingHistory && !responseIsPrevious
+    }
+
+    /// Says what the empty pane is for, without inviting typing into it.
+    public var responsePlaceholder: String {
+        machine.state == .submitted ? "Waiting for the response…" : "The response will appear here."
+    }
 
     public var canSend: Bool {
         machine.state == .composing && !plainPrompt.trimmed.isEmpty
@@ -244,6 +261,9 @@ public final class ConversationModel {
             selectedHistoryTurn = nil
             draftPrompt = NSAttributedString(string: "")
             draftResponse = NSAttributedString(string: "")
+            // The past turn's response stays on screen as context for the
+            // revised prompt, like any other previous response.
+            responseIsPrevious = !plainResponse.isEmpty
         }
         apply(transition, beforeTurn: before)
         if transition.effects.submitsPrompt { onSubmitPrompt?(text) }
@@ -253,10 +273,12 @@ public final class ConversationModel {
     public func present(response markdown: String) {
         let isEmpty = markdown.trimmed.isEmpty
         receivedResponse = markdown
-        if !isEmpty {
-            responseText = MarkdownRenderer.attributed(from: markdown)
-            presentedResponse = responseText.string
-        }
+        // The previous turn's response gives way to this one — or to nothing,
+        // so an empty response never leaves stale text standing in for it.
+        responseIsPrevious = false
+        responseText = isEmpty ? NSAttributedString(string: "")
+                               : MarkdownRenderer.attributed(from: markdown)
+        presentedResponse = isEmpty ? "" : responseText.string
         let before = machine.turn
         apply(machine.handle(.responseReceived(isEmpty: isEmpty)), beforeTurn: before)
     }
@@ -561,7 +583,9 @@ public final class ConversationModel {
                                    responsePreview: presentedResponse,
                                    responseWasEdited: edited))
         promptText = NSAttributedString(string: "")
-        responseText = NSAttributedString(string: "")
+        // The response stays visible, read-only, so the person can see what
+        // they are replying to while composing the next prompt.
+        responseIsPrevious = !plainResponse.isEmpty
         receivedResponse = ""
         presentedResponse = ""
     }

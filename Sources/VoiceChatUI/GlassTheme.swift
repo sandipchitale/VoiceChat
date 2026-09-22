@@ -36,6 +36,15 @@ enum GlassTheme: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Tooltip text: what choosing this theme does.
+    var help: String {
+        switch self {
+        case .system: "Default theme — follow the system's light or dark appearance"
+        case .light:  "Light theme"
+        case .dark:   "Dark theme"
+        }
+    }
+
     var symbol: String {
         switch self {
         case .system: "circle.lefthalf.filled"
@@ -198,19 +207,23 @@ struct HUDHeader: View {
 
             ThemePicker(selection: $settings.theme)
 
+            // Each part carries its own tooltip: an AppKit-backed slider does
+            // not reliably inherit one set on its container.
             HStack(spacing: 8) {
                 Image(systemName: "circle.dashed")
+                    .help("More transparent")
                 Slider(value: $settings.opacity, in: 0...1)
                     .controlSize(.small)
                     .tint(Glass.accent)
                     .frame(width: 110)
+                    .help("Window opacity — \(Int(settings.opacity * 100))%. Drag left for more transparent, right for more opaque.")
                     .accessibilityLabel("Window opacity")
                     .accessibilityValue("\(Int(settings.opacity * 100)) percent")
                 Image(systemName: "circle.fill")
+                    .help("More opaque")
             }
             .font(.system(size: 10))
             .foregroundStyle(.secondary)
-            .help("Window transparency")
         }
         .lineLimit(1)
         .padding(.horizontal, Metrics.outerPadding)
@@ -299,7 +312,7 @@ struct ThemePicker: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .help("\(theme.title) theme")
+                .help(selected ? "\(theme.help) (current)" : theme.help)
                 .accessibilityLabel("\(theme.title) theme")
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
