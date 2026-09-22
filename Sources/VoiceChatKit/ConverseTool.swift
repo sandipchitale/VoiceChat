@@ -36,6 +36,8 @@ public enum ConverseTool {
     VoiceChat window.
     - If a call returns an error, report it to the user in plain language and stop; do not retry in a \
     loop.
+    - Optionally pass `model` on every call with the name of the model you are running as. The window \
+    shows it next to the name of the app you are running in.
     """
 
     public static let inputSchema: Value = .object([
@@ -49,6 +51,10 @@ public enum ConverseTool {
             "continuation": .object([
                 "type": .string("string"),
                 "description": .string("Opaque token. Supply it, unchanged and alone, only when a previous result had status 'waiting'."),
+            ]),
+            "model": .object([
+                "type": .string("string"),
+                "description": .string("Optional. The name of the model driving this call (e.g. 'claude-sonnet-5'). Shown in the window; may change between calls."),
             ]),
         ]),
     ])

@@ -45,8 +45,9 @@ actor HTTPApp {
     /// when that session ends for any reason (explicit `DELETE`, idle
     /// timeout, or the whole app shutting down) — for VoiceChat, this is
     /// where the conversation's window actually gets asked to close.
+    typealias InitializeHook = @Sendable (Client.Info, Client.Capabilities) async throws -> Void
     typealias ServerFactory = @Sendable (String, StatefulHTTPServerTransport) async throws
-        -> (server: Server, onClose: @Sendable () async -> Void)
+        -> (server: Server, onClose: @Sendable () async -> Void, initializeHook: InitializeHook?)
 
     private let configuration: Configuration
     private let serverFactory: ServerFactory
@@ -197,8 +198,8 @@ actor HTTPApp {
         )
 
         do {
-            let (server, onClose) = try await serverFactory(sessionID, transport)
-            try await server.start(transport: transport)
+            let (server, onClose, initializeHook) = try await serverFactory(sessionID, transport)
+            try await server.start(transport: transport, initializeHook: initializeHook)
 
             sessions[sessionID] = SessionContext(
                 server: server,

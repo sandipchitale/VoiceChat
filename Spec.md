@@ -153,7 +153,7 @@ correctness requirement, not a nicety. [§3](#3-vcp--daemon--mcp-server-control-
 
 | | |
 |---|---|
-| N1 | VoiceChat does not talk to any LLM API. It has no API key, no model selection, and no notion of tokens or cost. The host's model is the only model. |
+| N1 | VoiceChat does not talk to any LLM API. It has no API key, no model selection, and no notion of tokens or cost. The host's model is the only model. The optional `model` field on `converse` ([§4.2](#42-the-converse-tool)) is a passive display label the caller supplies — VoiceChat never chooses, calls, or validates a model from it. |
 | N2 | VoiceChat does not manage conversation history, context windows, or memory. The host does that. |
 | N3 | No wake word, no always-on listening outside an open conversation window. |
 | N4 | No remote transport. `stdio` only. |
@@ -328,7 +328,7 @@ lifetime so that a second instance refuses to start rather than stealing the soc
 | Method | Params | Result |
 |---|---|---|
 | `hello` | see above | `{vcpVersion, daemonVersion}` |
-| `session.open` | `{sessionId, title?, host?, cwd?}` | `{sessionId, turnId}` — the first turn id |
+| `session.open` | `{sessionId, title?, host?, cwd?, model?}` | `{sessionId, turnId}` — the first turn id |
 | `turn.await` | see [§3.4](#34-turnawait) | see [§3.4](#34-turnawait) |
 | `turn.cancel` | `{sessionId, turnId}` | `{}` |
 | `session.close` | `{sessionId, reason}` | `{}` |
@@ -351,7 +351,8 @@ This single call carries the whole conversation loop.
   "sessionId": "9E2C…",
   "turnId":    "t3",
   "assistant": {"markdown":"Why did the scarecrow win an award? …"},   // or null
-  "waitMs":    240000
+  "waitMs":    240000,
+  "model":     "claude-sonnet-5"    // optional, may change turn to turn
 }}
 ```
 
@@ -467,6 +468,10 @@ second way for the model to get the sequence wrong.
       "continuation": {
         "type": "string",
         "description": "Opaque token. Supply it, unchanged and alone, only when a previous result had status 'waiting'."
+      },
+      "model": {
+        "type": "string",
+        "description": "Optional. The name of the model driving this call (e.g. 'claude-sonnet-5'). Shown in the window; may change between calls."
       }
     }
   },
@@ -801,7 +806,7 @@ Each of these is directly assertable in tests.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ ✕  VOICECHAT — CLAUDE-CODE                                                   │  header
+│ ✕  VOICECHAT — CLAUDE-CODE                       [ SONNET-5 · CLAUDE CODE ]         │  header
 │    Composing · turn 3                                                        │  subtitle
 ├───────────────────────────────────┬──────────────────────────────────────────┤
 │ TALK                    listening │ LISTEN                                   │
@@ -828,8 +833,9 @@ Each of these is directly assertable in tests.
 | Minimum content size | 1040 × 680 pt |
 | Style | Borderless, resizable, translucent; always on top (`.floating`); draggable by its header; joins the active Space and may sit over full-screen apps |
 | Frame autosave | `VoiceChatConversationWindow` |
-| Title | `VoiceChat — <host name>`, or `VoiceChat` when the host is unknown |
+| Title | `VoiceChat <version> — <project>` (the last path component of the host's working directory), or `VoiceChat <version>` when unknown. The host is not repeated here; it is in the identity badge. |
 | Subtitle | Tracks state (below) |
+| Identity badge | `<model> · <host>` (either alone if only one is known), shown in the header's trailing area. The model is optional and supplied by the caller on each `converse` call. The host is the MCP client's own name from its `initialize` request (`clientInfo.title` if sent, else a friendly name for known clients — `claude-code` → Claude Code, `claude-ai` → Claude Desktop — else `clientInfo.name` verbatim), so it never depends on the model. The bottom bar reads `Connected to <host> — <project> · <model>`. The badge is hidden when neither is known. |
 | Background | `NSGlassEffectView` (regular style) under a wash (black in dark, white in light) whose strength the header slider sets; 24 pt corner radius; cyan hairline rim |
 
 `R-UI-1` The header's subtitle line **MUST** track session state, as the equivalent of the reference
@@ -852,8 +858,9 @@ Next to it sits a transparency slider (0 = as see-through as the glass gets, 1 =
 nearly solid; default 0.35). It scales only the backdrops — the window wash and the editor-card fill — never
 text or controls. The value is shared by all conversation windows and persisted in `UserDefaults`
 (`VoiceChatGlassOpacity`). The header also carries, leading, a close button (same effect as closing a titled window: a live
-session ends with `window_closed`). It **MUST NOT** carry Send, Play, Stop, or Got it! — those belong to
-their panes. The speech-output popover and settings button of the earlier toolbar design are not
+session ends with `window_closed`), and, between the title and the theme control, the identity badge
+above — purely decorative text, hidden when absent. It **MUST NOT** carry Send, Play, Stop, or Got it! —
+those belong to their panes. The speech-output popover and settings button of the earlier toolbar design are not
 implemented.
 
 `R-UI-3` The window **MUST** be resizable to the minimum size without clipping any control, without

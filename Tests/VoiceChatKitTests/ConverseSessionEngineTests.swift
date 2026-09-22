@@ -27,6 +27,7 @@ private actor MockGateway: ConverseSessionGateway {
     }
 
     func openSession(
+        model: String?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String) {
@@ -39,7 +40,8 @@ private actor MockGateway: ConverseSessionGateway {
     struct OutOfResults: Error {}
 
     func awaitTurn(sessionId: String, turnId: String,
-                  assistant: AssistantMessage?, waitMs: Int) async throws -> TurnAwaitResult {
+                  assistant: AssistantMessage?, waitMs: Int,
+                  model: String?) async throws -> TurnAwaitResult {
         awaitCalls.append((sessionId, turnId, assistant))
         if let awaitError { throw awaitError }
         guard !results.isEmpty else { throw OutOfResults() }

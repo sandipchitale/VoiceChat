@@ -18,13 +18,15 @@ public protocol ConverseSessionGateway: Sendable {
     /// ends or its phase changes, e.g. the window closes with nothing
     /// currently blocked in `awaitTurn`.
     func openSession(
+        model: String?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String)
 
     func awaitTurn(
         sessionId: String, turnId: String,
-        assistant: AssistantMessage?, waitMs: Int
+        assistant: AssistantMessage?, waitMs: Int,
+        model: String?
     ) async throws -> TurnAwaitResult
 
     func closeSession(sessionId: String, reason: EndReason) async
@@ -78,7 +80,8 @@ public actor ConverseSessionEngine<Gateway: ConverseSessionGateway> {
 
     // MARK: The tool body
 
-    public func converse(message: String?, continuation: String?) async throws -> ConverseResult {
+    public func converse(message: String?, continuation: String?,
+                         model: String? = nil) async throws -> ConverseResult {
         // R-MCP-7
         if message != nil, continuation != nil { throw ConverseEngineError.bothArguments }
 
@@ -96,7 +99,7 @@ public actor ConverseSessionEngine<Gateway: ConverseSessionGateway> {
         var note: String?
 
         if sessionId == nil {
-            try await openSession()
+            try await openSession(model: model)
             // R-MCP-8 — the model skipped step 1. Open the window anyway and
             // say plainly that the reply was dropped, rather than showing a
             // response to a prompt that was never given.
@@ -115,13 +118,14 @@ public actor ConverseSessionEngine<Gateway: ConverseSessionGateway> {
             ? message.map(AssistantMessage.init(markdown:))
             : nil
 
-        return try await awaitTurn(assistant: assistant, note: note)
+        return try await awaitTurn(assistant: assistant, note: note, model: model)
     }
 
     // MARK: Session lifecycle
 
-    private func openSession() async throws {
+    private func openSession(model: String?) async throws {
         let (id, firstTurnId) = try await gateway.openSession(
+            model: model,
             onEnded: { [weak self] reason in await self?.noteEnded(reason) },
             onProgress: { [weak self] phase in await self?.noteProgress(phase) }
         )
@@ -135,12 +139,14 @@ public actor ConverseSessionEngine<Gateway: ConverseSessionGateway> {
 
     // MARK: One bounded wait
 
-    private func awaitTurn(assistant: AssistantMessage?, note: String?) async throws -> ConverseResult {
+    private func awaitTurn(assistant: AssistantMessage?, note: String?,
+                           model: String?) async throws -> ConverseResult {
         guard let sessionId else {
             preconditionFailure("awaitTurn called before a session was opened")
         }
         let result = try await gateway.awaitTurn(sessionId: sessionId, turnId: turns.current,
-                                                 assistant: assistant, waitMs: waitMs)
+                                                 assistant: assistant, waitMs: waitMs,
+                                                 model: model)
 
         switch result.outcome {
         case .prompt:

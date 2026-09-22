@@ -7,11 +7,13 @@ import VoiceChatKit
 //   vcp-probe                       one turn, then end
 //   vcp-probe --turns 3             three turns
 //   vcp-probe --wait-ms 2000        short bounded waits, to exercise `pending`
+//   vcp-probe --model claude-sonnet-5          model shown in the badge in the window
 
 struct Options {
     var turns = 1
     var waitMs = 240_000
     var socket = VCP.defaultSocketURL().path
+    var model: String?
 }
 
 func parseOptions() -> Options {
@@ -22,6 +24,7 @@ func parseOptions() -> Options {
         case "--turns":   o.turns = Int(it.next() ?? "") ?? o.turns
         case "--wait-ms": o.waitMs = Int(it.next() ?? "") ?? o.waitMs
         case "--socket":  o.socket = it.next() ?? o.socket
+        case "--model":   o.model = it.next()
         default:
             FileHandle.standardError.write(Data("unknown option: \(arg)\n".utf8))
             exit(2)
@@ -57,7 +60,8 @@ say("connected to daemon \(hello.daemonVersion), vcp v\(hello.vcpVersion)")
 let sessionId = UUID().uuidString
 let opened = try await client.call(
     .sessionOpen,
-    SessionOpenParams(sessionId: sessionId, title: "vcp-probe", host: "vcp-probe"),
+    SessionOpenParams(sessionId: sessionId, title: "vcp-probe", host: "vcp-probe",
+                      model: options.model),
     as: SessionOpenResult.self)
 say("session \(opened.sessionId) open, first turn \(opened.turnId)")
 
@@ -69,7 +73,8 @@ loop: for n in 1...options.turns {
         let result = try await client.call(
             .turnAwait,
             TurnAwaitParams(sessionId: sessionId, turnId: turnId,
-                            assistant: assistant, waitMs: options.waitMs),
+                            assistant: assistant, waitMs: options.waitMs,
+                            model: options.model),
             as: TurnAwaitResult.self)
         assistant = nil
 

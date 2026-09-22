@@ -146,8 +146,12 @@ public struct SessionOpenParams: Sendable, Codable, Equatable {
     public var title: String?
     public var host: String?
     public var cwd: String?
-    public init(sessionId: String, title: String? = nil, host: String? = nil, cwd: String? = nil) {
+    /// The model driving the first `converse` call, if the caller supplied one.
+    public var model: String?
+    public init(sessionId: String, title: String? = nil, host: String? = nil, cwd: String? = nil,
+                model: String? = nil) {
         self.sessionId = sessionId; self.title = title; self.host = host; self.cwd = cwd
+        self.model = model
     }
 }
 
@@ -170,10 +174,14 @@ public struct TurnAwaitParams: Sendable, Codable, Equatable {
     /// `nil` on the first turn and when resuming a bounded wait (R-VCP-8).
     public var assistant: AssistantMessage?
     public var waitMs: Int
+    /// The model driving this call, if the caller supplied one. May change turn to turn.
+    public var model: String?
 
-    public init(sessionId: String, turnId: String, assistant: AssistantMessage?, waitMs: Int) {
+    public init(sessionId: String, turnId: String, assistant: AssistantMessage?, waitMs: Int,
+                model: String? = nil) {
         self.sessionId = sessionId; self.turnId = turnId
         self.assistant = assistant; self.waitMs = waitMs
+        self.model = model
     }
 }
 

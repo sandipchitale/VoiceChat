@@ -22,7 +22,8 @@ public struct ConversationView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            HUDHeader(title: title, subtitle: model.windowSubtitle, onClose: onCloseWindow)   // R-UI-1
+            HUDHeader(title: title, subtitle: model.windowSubtitle, badge: model.identityBadge,
+                     onClose: onCloseWindow)   // R-UI-1
             GlassDivider()
             if let banner = model.terminalBanner {
                 TerminalBanner(text: banner)                      // R-UI-20
@@ -297,9 +298,16 @@ public struct ConversationView: View {
 
     // MARK: Bottom bar (§6.1)
 
+    private var bottomBarText: String {
+        // The host is already in "Connected to …", so only the model is added.
+        let connected = model.sessionIdentity.map { "Connected to \($0)" } ?? "VoiceChat"
+        guard let currentModel = model.currentModel else { return connected }
+        return "\(connected) · \(currentModel)"
+    }
+
     private var bottomBar: some View {
         HStack {
-            Text(model.sessionIdentity.map { "Connected to \($0)" } ?? "VoiceChat")
+            Text(bottomBarText)
                 .font(Metrics.captionFont)
                 .foregroundStyle(.tertiary)
                 .help(model.workingDirectory ?? "")

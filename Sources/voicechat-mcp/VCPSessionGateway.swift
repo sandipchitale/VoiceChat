@@ -29,12 +29,18 @@ actor VCPSessionGateway: ConverseSessionGateway {
     private let socketPath: String
 
     private var client: VCPClient?
+    /// The MCP host, as it named itself in `initialize`. Set before any
+    /// `converse` call can arrive, since `initialize` always comes first.
+    private var host: HelloParams.Peer?
 
     init(socketPath: String) {
         self.socketPath = socketPath
     }
 
+    func setHost(_ host: HelloParams.Peer) { self.host = host }
+
     func openSession(
+        model: String?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String) {
@@ -49,7 +55,7 @@ actor VCPSessionGateway: ConverseSessionGateway {
         let hello = HelloParams(
             client: .init(name: "voicechat-mcp", version: VoiceChatVersion.string,
                           pid: ProcessInfo.processInfo.processIdentifier),
-            host: HostIdentity.current)
+            host: host)
         do {
             _ = try await client.call(.hello, hello, as: HelloResult.self)
         } catch let e as VCPError { throw ConverseTransportError.vcp(e) }
@@ -61,8 +67,9 @@ actor VCPSessionGateway: ConverseSessionGateway {
             opened = try await client.call(
                 .sessionOpen,
                 SessionOpenParams(sessionId: id, title: nil,
-                                  host: HostIdentity.current?.name,
-                                  cwd: FileManager.default.currentDirectoryPath),
+                                  host: host?.name,
+                                  cwd: FileManager.default.currentDirectoryPath,
+                                  model: model),
                 as: SessionOpenResult.self)
         } catch let e as VCPError { throw ConverseTransportError.vcp(e) }
         catch { throw ConverseTransportError.transport("\(error)") }
@@ -95,9 +102,11 @@ actor VCPSessionGateway: ConverseSessionGateway {
     }
 
     func awaitTurn(sessionId: String, turnId: String,
-                   assistant: AssistantMessage?, waitMs: Int) async throws -> TurnAwaitResult {
+                   assistant: AssistantMessage?, waitMs: Int,
+                   model: String?) async throws -> TurnAwaitResult {
         guard let client else { throw ConverseTransportError.transport("no session") }
-        let params = TurnAwaitParams(sessionId: sessionId, turnId: turnId, assistant: assistant, waitMs: waitMs)
+        let params = TurnAwaitParams(sessionId: sessionId, turnId: turnId, assistant: assistant, waitMs: waitMs,
+                                     model: model)
         do {
             return try await client.call(.turnAwait, params, as: TurnAwaitResult.self)
         } catch let e as VCPError {
@@ -122,8 +131,3 @@ actor VCPSessionGateway: ConverseSessionGateway {
     }
 }
 
-enum HostIdentity {
-    /// Filled in from MCP `initialize` once the SDK surfaces it; until then the
-    /// daemon shows a generic title.
-    nonisolated(unsafe) static var current: HelloParams.Peer?
-}

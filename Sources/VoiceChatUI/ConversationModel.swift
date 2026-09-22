@@ -64,6 +64,21 @@ public final class ConversationModel {
     public var workingDirectory: String?
     public private(set) var terminalBanner: String?
 
+    /// The model driving the conversation, if the caller supplied one. May
+    /// change turn to turn.
+    public var currentModel: String?
+
+    /// Model and host (e.g. "claude-opus-5 · Claude Code") when either is
+    /// known, else `nil`. Shown as a short badge in the window header.
+    public var identityBadge: String? {
+        switch (currentModel, hostName) {
+        case let (model?, host?): return "\(model) · \(host)"
+        case let (model?, nil):   return model
+        case let (nil, host?):    return host
+        case (nil, nil):          return nil
+        }
+    }
+
     /// Host and project together when either is known, else `nil`. Used where a
     /// missing identity should fall back to a generic label (e.g. the window
     /// title).

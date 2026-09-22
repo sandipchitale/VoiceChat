@@ -36,6 +36,7 @@ await server.withMethodHandler(CallTool.self) { params in
 
     let message: String? = if case .string(let s)? = params.arguments?["message"] { s } else { nil }
     let continuation: String? = if case .string(let s)? = params.arguments?["continuation"] { s } else { nil }
+    let model: String? = if case .string(let s)? = params.arguments?["model"] { s } else { nil }
 
     let ticker = ConverseTool.startProgressTicker(
         server: server,
@@ -45,7 +46,8 @@ await server.withMethodHandler(CallTool.self) { params in
     defer { ticker.cancel() }
 
     do {
-        let result = try await engine.converse(message: message, continuation: continuation)
+        let result = try await engine.converse(message: message, continuation: continuation,
+                                               model: model)
         log("converse -> \(result.status.rawValue)")
         return try CallTool.Result(
             content: [.text(text: result.text)],
@@ -86,6 +88,9 @@ nonisolated(unsafe) var signalSources: [DispatchSourceSignal] = []
 installSignalHandlers()
 
 let transport = StdioTransport()
-try await server.start(transport: transport)
+try await server.start(transport: transport, initializeHook: { client, _ in
+    await gateway.setHost(.init(name: MCPHostName.display(name: client.name, title: client.title),
+                                version: client.version))
+})
 await server.waitUntilCompleted()
 await engine.shutdown(reason: .mcpExit)

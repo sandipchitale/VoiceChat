@@ -150,6 +150,7 @@ struct WindowDragArea: NSViewRepresentable {
 struct HUDHeader: View {
     let title: String
     let subtitle: String
+    let badge: String?
     let onClose: () -> Void
     @Bindable private var settings = GlassSettings.shared
     @Environment(\.colorScheme) private var scheme
@@ -181,6 +182,17 @@ struct HUDHeader: View {
                 }
             }
             Spacer()
+
+            if let badge {
+                Text(badge)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Glass.accent.opacity(0.12)))
+                    .help("Model and app driving this conversation")
+            }
 
             PinButton(isPinned: $settings.alwaysOnTop)
 

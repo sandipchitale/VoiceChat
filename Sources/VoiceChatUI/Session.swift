@@ -25,15 +25,19 @@ public final class Session {
     /// menu bar.
     public var onDisposed: (@Sendable (String) -> Void)?
 
-    public init(id: String, title: String?, hostName: String?, cwd: String? = nil) {
+    public init(id: String, title: String?, hostName: String?, cwd: String? = nil,
+                model modelName: String? = nil) {
         self.id = id
         self.coordinator = TurnCoordinator()
         self.model = ConversationModel()
         self.model.hostName = hostName
         self.model.projectName = cwd.flatMap(Self.projectName(fromCwd:))
         self.model.workingDirectory = cwd.map { ($0 as NSString).abbreviatingWithTildeInPath }
+        self.model.currentModel = modelName
         let appName = "VoiceChat \(VoiceChatVersion.string)"
-        let windowTitle = title ?? model.sessionIdentity.map { "\(appName) — \($0)" } ?? appName
+        // The host is shown in the header badge, so the title names only the
+        // project, rather than repeating the host a few pixels away.
+        let windowTitle = title ?? model.projectName.map { "\(appName) — \($0)" } ?? appName
         self.windowController = ConversationWindowController(model: model, title: windowTitle)
 
         wire()
@@ -156,6 +160,13 @@ public final class Session {
     }
 
     public func show() { windowController.present() }
+
+    /// The caller may identify itself differently on every `converse` call
+    /// — refreshed once per turn, right before
+    /// the daemon starts awaiting that turn.
+    public func updateIdentity(model modelName: String?) {
+        if let modelName { self.model.currentModel = modelName }
+    }
 
     /// A response arrived from the peer (§5.2 row 6/7).
     public func present(response markdown: String) {

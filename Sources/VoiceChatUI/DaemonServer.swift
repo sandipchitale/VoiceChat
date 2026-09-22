@@ -59,8 +59,9 @@ public final class DaemonServer: @unchecked Sendable {
     /// Public so an in-process caller (the HTTP MCP transport,
     /// `VoiceChatMCPServer`) can open sessions the same way VCP's
     /// `PeerConnection` does, without going through a socket.
-    public func openSession(id: String, title: String?, host: String?, cwd: String?) -> Session {
-        let session = Session(id: id, title: title, hostName: host, cwd: cwd)
+    public func openSession(id: String, title: String?, host: String?, cwd: String?,
+                            model: String? = nil) -> Session {
+        let session = Session(id: id, title: title, hostName: host, cwd: cwd, model: model)
         sessions[id] = session
         // True disposal: once the window actually closes, the session is
         // dropped from the registry and can no longer be reopened from the
@@ -164,7 +165,8 @@ final class PeerConnection {
 
     private func handleSessionOpen(id: Int, params: Data) throws {
         let open = try VCPCodec.decodePayload(SessionOpenParams.self, from: params)
-        let session = server.openSession(id: open.sessionId, title: open.title, host: open.host, cwd: open.cwd)
+        let session = server.openSession(id: open.sessionId, title: open.title, host: open.host, cwd: open.cwd,
+                                         model: open.model)
         sessionIds.insert(open.sessionId)
 
         session.onEnded = { [weak self] sessionId, reason in
@@ -189,6 +191,7 @@ final class PeerConnection {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                session.updateIdentity(model: request.model)
                 let result = try await session.coordinator.awaitTurn(request) { markdown in
                     Task { @MainActor in session.present(response: markdown) }
                 }

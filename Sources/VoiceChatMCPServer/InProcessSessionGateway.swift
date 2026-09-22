@@ -13,7 +13,7 @@ import VoiceChatUI
 @MainActor
 public final class InProcessSessionGateway: ConverseSessionGateway, @unchecked Sendable {
     private let server: DaemonServer
-    private let host: String?
+    private var host: String?
     private let cwd: String?
     private var session: Session?
 
@@ -23,12 +23,16 @@ public final class InProcessSessionGateway: ConverseSessionGateway, @unchecked S
         self.cwd = cwd
     }
 
+    /// The MCP host, as it named itself in `initialize` for this HTTP session.
+    public func setHost(_ host: String) { self.host = host }
+
     public func openSession(
+        model: String?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String) {
         let id = UUID().uuidString
-        let session = server.openSession(id: id, title: nil, host: host, cwd: cwd)
+        let session = server.openSession(id: id, title: nil, host: host, cwd: cwd, model: model)
         // `Session.onEnded`/`.onProgress` are plain synchronous callbacks (the
         // same ones VCP's `PeerConnection` uses), so crossing into the async
         // gateway contract needs a `Task` here — exactly at the edge where a
@@ -46,9 +50,12 @@ public final class InProcessSessionGateway: ConverseSessionGateway, @unchecked S
     /// reach this method without a `session` is a gateway that was never
     /// opened at all.
     public func awaitTurn(sessionId: String, turnId: String,
-                          assistant: AssistantMessage?, waitMs: Int) async throws -> TurnAwaitResult {
+                          assistant: AssistantMessage?, waitMs: Int,
+                          model: String?) async throws -> TurnAwaitResult {
         guard let session else { throw VCPError.unknownSession }
-        let params = TurnAwaitParams(sessionId: sessionId, turnId: turnId, assistant: assistant, waitMs: waitMs)
+        let params = TurnAwaitParams(sessionId: sessionId, turnId: turnId, assistant: assistant, waitMs: waitMs,
+                                     model: model)
+        session.updateIdentity(model: model)
         return try await session.coordinator.awaitTurn(params) { markdown in
             Task { @MainActor in session.present(response: markdown) }
         }

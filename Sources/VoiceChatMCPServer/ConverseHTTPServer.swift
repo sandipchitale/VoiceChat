@@ -37,6 +37,7 @@ public actor ConverseHTTPServer {
 
                 let message: String? = if case .string(let s)? = params.arguments?["message"] { s } else { nil }
                 let continuation: String? = if case .string(let s)? = params.arguments?["continuation"] { s } else { nil }
+                let model: String? = if case .string(let s)? = params.arguments?["model"] { s } else { nil }
 
                 let ticker = ConverseTool.startProgressTicker(
                     server: server,
@@ -46,7 +47,8 @@ public actor ConverseHTTPServer {
                 defer { ticker.cancel() }
 
                 do {
-                    let result = try await engine.converse(message: message, continuation: continuation)
+                    let result = try await engine.converse(message: message, continuation: continuation,
+                                                           model: model)
                     return try CallTool.Result(
                         content: [.text(text: result.text)],
                         structuredContent: ConverseTool.structuredContent(result),
@@ -70,7 +72,12 @@ public actor ConverseHTTPServer {
             let onClose: @Sendable () async -> Void = {
                 await engine.shutdown(reason: .mcpExit)
             }
-            return (server, onClose)
+            // Each HTTP session is its own MCP connection, so it names its
+            // own host in its own `initialize`.
+            let initializeHook: HTTPApp.InitializeHook = { client, _ in
+                await gateway.setHost(MCPHostName.display(name: client.name, title: client.title))
+            }
+            return (server, onClose, initializeHook)
         }
     }
 
