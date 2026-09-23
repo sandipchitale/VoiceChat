@@ -19,6 +19,7 @@ public protocol ConverseSessionGateway: Sendable {
     /// currently blocked in `awaitTurn`.
     func openSession(
         model: String?,
+        debate: DebateJoin?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String)
@@ -81,7 +82,8 @@ public actor ConverseSessionEngine<Gateway: ConverseSessionGateway> {
     // MARK: The tool body
 
     public func converse(message: String?, continuation: String?,
-                         model: String? = nil) async throws -> ConverseResult {
+                         model: String? = nil,
+                         debate: DebateJoin? = nil) async throws -> ConverseResult {
         // R-MCP-7
         if message != nil, continuation != nil { throw ConverseEngineError.bothArguments }
 
@@ -99,7 +101,7 @@ public actor ConverseSessionEngine<Gateway: ConverseSessionGateway> {
         var note: String?
 
         if sessionId == nil {
-            try await openSession(model: model)
+            try await openSession(model: model, debate: debate)
             // R-MCP-8 — the model skipped step 1. Open the window anyway and
             // say plainly that the reply was dropped, rather than showing a
             // response to a prompt that was never given.
@@ -123,9 +125,10 @@ public actor ConverseSessionEngine<Gateway: ConverseSessionGateway> {
 
     // MARK: Session lifecycle
 
-    private func openSession(model: String?) async throws {
+    private func openSession(model: String?, debate: DebateJoin?) async throws {
         let (id, firstTurnId) = try await gateway.openSession(
             model: model,
+            debate: debate,
             onEnded: { [weak self] reason in await self?.noteEnded(reason) },
             onProgress: { [weak self] phase in await self?.noteProgress(phase) }
         )

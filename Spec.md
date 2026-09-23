@@ -1752,6 +1752,52 @@ Each phase ends in something runnable and demonstrable.
 
 ---
 
+## 17. Debate
+
+A debate is the ordinary conversation loop with the person's half automated: two MCP clients argue a
+motion, and each one's finished statement becomes the other's incoming prompt. The person creates the
+room and moderates it.
+
+`R-DEB-1` The relay **MUST** hang off the turn advancing (`SessionEffects.advancesTurn`, rows 7, 8
+and 13 of [§5.2](#52-transition-table)), never off speech finishing. Auto-play is off under VoiceOver
+and where no voice is installed (`R-UI-24`), and a moderator may cut a statement short with Stop then
+**Got it!** — in both cases speech never finishes, and a relay hung off it would strand the debate
+silently.
+
+`R-DEB-2` Muting **MUST NOT** change a debate. `R-TTS`-level muting leaves the reading, the sentence
+highlight and the turn advance running, so a moderator can silence both windows and follow the
+argument by the highlight alone, at the same pace. No relay may be triggered by audio state, an audio
+tap, or an estimated reading duration.
+
+`R-DEB-3` There is **no speech arbiter**. Stopping one seat's synthesiser from outside the state
+machine would leave that seat in `Responding.Auto` for ever (its cancellation deliberately does not
+re-enter the machine), which is the very stall an arbiter would be added to prevent. A debate
+alternates by construction.
+
+`R-DEB-4` The person creates a room from the menu bar; clients only join. Nothing opens until a seat
+is taken, so no window is ever orphaned waiting for a client that never comes.
+
+`R-DEB-5` A client takes a seat by passing `debate_id` and `side` on its **first** `converse` call.
+A refusal — unknown room, unknown seat, seat taken — **MUST** be an actionable sentence naming the
+free seat or telling the model to ask the person, never a code.
+
+`R-DEB-6` Handover is manual: a statement is placed in the other seat's prompt pane and **MUST NOT**
+be sent for the person. Anything the person adds or changes before sending is attributed with a
+`> Moderator:` line, and each seat's briefing tells it to comply with such lines.
+
+`R-DEB-7` The first seat opens. Each briefing requires a debater to name itself in the first sentence
+of every statement, so a listener — or a muted observer reading the highlight — always knows who is
+speaking. Each seat is given a distinct voice, falling back to distinct pitch and rate where the Mac
+has only one voice installed.
+
+`R-DEB-8` Each seat's window carries a debate bar showing the motion, the seat, the statement count,
+what it is waiting for, and the moderator's **Skip turn** and **End debate**. Ending one seat ends
+the other exactly once, and a finished room's id stops working immediately.
+
+`R-DEB-9` Debate windows open with the microphone off — their turns arrive as text — and are placed
+beside one another, stacking top and bottom where the screen is too narrow for two windows at
+`Metrics.minWindowSize` (2 × 1040 pt plus a gap). Only the first seat's window takes focus.
+
 ## Appendix A — Glossary
 
 | Term | Meaning |

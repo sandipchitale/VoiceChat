@@ -38,6 +38,17 @@ public enum ConverseTool {
     loop.
     - Optionally pass `model` on every call with the name of the model you are running as. The window \
     shows it next to the name of the app you are running in.
+
+    Debates:
+
+    - If the user asks you to join a debate and gives you an id, pass `debate_id` and `side` on your \
+    FIRST call only, with no `message`. You take that seat; another AI takes the other one. Everything \
+    after that is the ordinary loop above — never pass them again.
+    - In a debate, `user_message` is your opponent's latest statement, and your `message` is your reply \
+    to it. A line starting "> Moderator:" is from the human watching; do as it says.
+    - "waiting" happens often and repeatedly in a debate, because your opponent may take minutes to \
+    answer and the human passes each statement across by hand. Keep calling `converse` with the \
+    continuation. Do not stop, do not report progress, and do not do other work in between.
     """
 
     public static let inputSchema: Value = .object([
@@ -55,6 +66,14 @@ public enum ConverseTool {
             "model": .object([
                 "type": .string("string"),
                 "description": .string("Optional. The name of the model driving this call (e.g. 'claude-sonnet-5'). Shown in the window; may change between calls."),
+            ]),
+            "debate_id": .object([
+                "type": .string("string"),
+                "description": .string("The id of a debate to join, e.g. 'owl-42'. First call only, and only when the user gave you one."),
+            ]),
+            "side": .object([
+                "type": .string("string"),
+                "description": .string("Which seat of that debate to take, e.g. 'for'. Goes with debate_id, on the first call only."),
             ]),
         ]),
     ])

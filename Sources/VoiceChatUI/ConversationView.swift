@@ -28,6 +28,11 @@ public struct ConversationView: View {
             if let banner = model.terminalBanner {
                 TerminalBanner(text: banner)                      // R-UI-20
             }
+            if let debate = model.debate {                        // R-DEB-8
+                DebateBar(badge: debate,
+                          onSkip: { model.onDebateSkipTurn?() },
+                          onEnd: { model.onDebateEnd?() })
+            }
             if model.isViewingHistory {
                 HistoryPeekBar { model.returnToCurrentTurn() }     // R-UI-11
             }

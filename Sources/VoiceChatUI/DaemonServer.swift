@@ -59,9 +59,29 @@ public final class DaemonServer: @unchecked Sendable {
     /// Public so an in-process caller (the HTTP MCP transport,
     /// `VoiceChatMCPServer`) can open sessions the same way VCP's
     /// `PeerConnection` does, without going through a socket.
+    /// Throws when the caller asked for a debate seat it cannot have — an
+    /// unknown room, or one already taken. Nothing is opened in that case.
     public func openSession(id: String, title: String?, host: String?, cwd: String?,
-                            model: String? = nil) -> Session {
-        let session = Session(id: id, title: title, hostName: host, cwd: cwd, model: model)
+                            model: String? = nil, debate: DebateJoin? = nil) throws -> Session {
+        let seat = try debate.map { join -> DebateSeat in
+            guard let coordinator = DebateRegistry.shared.coordinator(join.roomID),
+                  let seat = coordinator.room.seat(join.seat) else {
+                // Let the registry phrase the refusal; it owns the wording.
+                try DebateRegistry.shared.seat(RejectedSeat(), join: join)
+                throw VCPError.debateSeatUnavailable("That debate seat is not available.")
+            }
+            return seat
+        }
+        let session = Session(id: id, title: title, hostName: host, cwd: cwd, model: model,
+                              debateSeat: seat)
+        if let debate {
+            do {
+                try DebateRegistry.shared.seat(session, join: debate)
+            } catch {
+                session.windowController.closeQuietly()
+                throw error
+            }
+        }
         sessions[id] = session
         // True disposal: once the window actually closes, the session is
         // dropped from the registry and can no longer be reopened from the
@@ -69,7 +89,17 @@ public final class DaemonServer: @unchecked Sendable {
         session.onDisposed = { [weak self] sessionId in
             Task { @MainActor in self?.removeSession(sessionId) }
         }
-        session.show()
+        if let debate, let coordinator = DebateRegistry.shared.coordinator(debate.roomID),
+           let index = coordinator.room.seats.firstIndex(where: { $0.key == debate.seat }) {
+            // A debate seat is placed beside its opponent and given its own
+            // voice, so the two sides are told apart by ear as well as by eye.
+            let deliveries = DebateVoices.deliveries(for: coordinator.room.seats,
+                                                     available: DebateVoices.installed())
+            if index < deliveries.count { session.applyDelivery(deliveries[index]) }
+            session.show(seatIndex: index, of: coordinator.room.seats.count)
+        } else {
+            session.show()
+        }
         onSessionsChanged?()
         return session
     }
@@ -166,8 +196,14 @@ final class PeerConnection {
 
     private func handleSessionOpen(id: Int, params: Data) throws {
         let open = try VCPCodec.decodePayload(SessionOpenParams.self, from: params)
-        let session = server.openSession(id: open.sessionId, title: open.title, host: open.host, cwd: open.cwd,
-                                         model: open.model)
+        let session: Session
+        do {
+            session = try server.openSession(id: open.sessionId, title: open.title, host: open.host,
+                                             cwd: open.cwd, model: open.model, debate: open.debate)
+        } catch let error as VCPError {
+            reply(id: id, error: error)
+            return
+        }
         sessionIds.insert(open.sessionId)
 
         session.onEnded = { [weak self] sessionId, reason in

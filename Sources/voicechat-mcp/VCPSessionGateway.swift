@@ -66,6 +66,7 @@ actor VCPSessionGateway: ConverseSessionGateway {
 
     func openSession(
         model: String?,
+        debate: DebateJoin?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String) {
@@ -94,7 +95,8 @@ actor VCPSessionGateway: ConverseSessionGateway {
                 SessionOpenParams(sessionId: id, title: nil,
                                   host: host?.name,
                                   cwd: FileManager.default.currentDirectoryPath,
-                                  model: model),
+                                  model: model,
+                                  debate: debate),
                 as: SessionOpenResult.self)
         } catch let e as VCPError { throw ConverseTransportError.vcp(e) }
         catch { throw ConverseTransportError.transport("\(error)") }

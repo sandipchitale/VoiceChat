@@ -45,11 +45,13 @@ public final class InProcessSessionGateway: ConverseSessionGateway, @unchecked S
 
     public func openSession(
         model: String?,
+        debate: DebateJoin?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String) {
         let id = UUID().uuidString
-        let session = server.openSession(id: id, title: nil, host: host, cwd: cwd, model: model)
+        let session = try server.openSession(id: id, title: nil, host: host, cwd: cwd,
+                                             model: model, debate: debate)
         // `Session.onEnded`/`.onProgress` are plain synchronous callbacks (the
         // same ones VCP's `PeerConnection` uses), so crossing into the async
         // gateway contract needs a `Task` here — exactly at the edge where a

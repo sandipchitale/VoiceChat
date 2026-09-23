@@ -26,12 +26,16 @@ private actor MockGateway: ConverseSessionGateway {
         self.awaitError = awaitError
     }
 
+    private(set) var lastDebateJoin: DebateJoin?
+
     func openSession(
         model: String?,
+        debate: DebateJoin?,
         onEnded: @escaping @Sendable (EndReason) async -> Void,
         onProgress: @escaping @Sendable (TurnProgressParams.Phase) async -> Void
     ) async throws -> (sessionId: String, firstTurnId: String) {
         openSessionCallCount += 1
+        lastDebateJoin = debate
         self.onEnded = onEnded
         self.onProgress = onProgress
         return ("session-\(openSessionCallCount)", "t1")
@@ -250,5 +254,35 @@ struct ConverseSessionEngineTests {
         await #expect(throws: DummyError.self) {
             _ = try await engine.converse(message: nil, continuation: nil)
         }
+    }
+}
+
+@Suite("Joining a debate — the seat travels with the first call only")
+struct ConverseDebateJoinTests {
+
+    @Test("the seat is passed when the window is opened")
+    func passesTheSeatOnOpen() async throws {
+        let gateway = MockGateway(results: [.prompt(turnId: "t1", nextTurnId: "t2", markdown: "hello")])
+        let engine = ConverseSessionEngine(gateway: gateway, waitMs: 10)
+
+        _ = try await engine.converse(message: nil, continuation: nil, model: "claude-opus-5",
+                                      debate: DebateJoin(roomID: "owl-42", seat: "for"))
+        #expect(await gateway.lastDebateJoin == DebateJoin(roomID: "owl-42", seat: "for"))
+    }
+
+    @Test("a debate is just a conversation after the first call")
+    func laterCallsAreOrdinary() async throws {
+        let gateway = MockGateway(results: [
+            .prompt(turnId: "t1", nextTurnId: "t2", markdown: "their opening"),
+            .prompt(turnId: "t2", nextTurnId: "t3", markdown: "their answer"),
+        ])
+        let engine = ConverseSessionEngine(gateway: gateway, waitMs: 10)
+
+        _ = try await engine.converse(message: nil, continuation: nil,
+                                      debate: DebateJoin(roomID: "owl-42", seat: "for"))
+        let second = try await engine.converse(message: "my reply", continuation: nil)
+
+        #expect(second.status == .prompt)
+        #expect(await gateway.openSessionCallCount == 1, "one window, one seat")
     }
 }

@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         server = DaemonServer(version: daemonVersion)
         server.onSessionsChanged = { [weak self] in self?.rebuildMenu() }
+        DebateRegistry.shared.onRoomsChanged = { [weak self] in self?.rebuildMenu() }
 
         do {
             try server.start()
@@ -78,6 +79,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 item.representedObject = session.id
                 menu.addItem(item)
             }
+        }
+
+        menu.addItem(.separator())
+        let newDebate = NSMenuItem(title: "New Debate…", action: #selector(newDebate),
+                                   keyEquivalent: "d")
+        newDebate.keyEquivalentModifierMask = [.command, .option]
+        newDebate.target = self
+        menu.addItem(newDebate)
+
+        for room in DebateRegistry.shared.rooms {
+            guard let coordinator = DebateRegistry.shared.coordinator(room.id) else { continue }
+            let filled = coordinator.filledSeats
+            let item = NSMenuItem(
+                title: "    \(room.id) — \(filled) of \(room.seats.count) seats filled",
+                action: nil, keyEquivalent: "")
+            item.toolTip = room.motion
+            let submenu = NSMenu()
+            for seat in coordinator.freeSeats {
+                let join = NSMenuItem(title: "Copy join instruction for “\(seat.key)”",
+                                      action: #selector(copyJoinInstruction(_:)), keyEquivalent: "")
+                join.target = self
+                join.representedObject = room.joinInstruction(for: seat)
+                join.toolTip = "Paste this into the MCP client that should argue: \(seat.position)"
+                submenu.addItem(join)
+            }
+            if coordinator.freeSeats.isEmpty {
+                submenu.addItem(disabled("Both seats taken"))
+            }
+            submenu.addItem(.separator())
+            let end = NSMenuItem(title: "End Debate", action: #selector(endDebate(_:)),
+                                 keyEquivalent: "")
+            end.target = self
+            end.representedObject = room.id
+            submenu.addItem(end)
+            item.submenu = submenu
+            menu.addItem(item)
         }
 
         menu.addItem(.separator())
@@ -149,6 +186,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
 
         NSApp.mainMenu = mainMenu
+    }
+
+    // MARK: Debates (§17)
+
+    @objc private func newDebate() {
+        DebateSetupWindowController.show { room in
+            DebateRegistry.shared.create(room)
+            // Nothing opens yet: windows appear as clients take the seats.
+            NSPasteboard.general.clearContents()
+            if let first = room.seats.first {
+                NSPasteboard.general.setString(room.joinInstruction(for: first), forType: .string)
+            }
+        }
+    }
+
+    @objc private func copyJoinInstruction(_ sender: NSMenuItem) {
+        guard let text = sender.representedObject as? String else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    @objc private func endDebate(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        DebateRegistry.shared.coordinator(id)?.endDebate()
+        DebateRegistry.shared.close(id)
     }
 
     @objc private func focusSession(_ sender: NSMenuItem) {

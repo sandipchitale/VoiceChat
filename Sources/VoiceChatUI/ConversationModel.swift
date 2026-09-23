@@ -70,6 +70,12 @@ public final class ConversationModel {
 
     public func setRoots(_ roots: [WorkspaceRoot]) { self.roots = roots }
 
+    /// Set while this window is a seat in a debate; drives the debate bar.
+    public var debate: DebateBadge?
+    /// The debate bar's two moderator actions, wired by the session.
+    public var onDebateSkipTurn: (() -> Void)?
+    public var onDebateEnd: (() -> Void)?
+
     public var hostName: String?
     /// The last path component of the host's working directory, if known — the
     /// "project" this conversation belongs to.
@@ -128,14 +134,24 @@ public final class ConversationModel {
     public var onRecognizer: ((RecognizerAction) -> Void)?
     public var onStartSpeech: ((NSAttributedString, NSRange?) -> Void)?
     public var onStopSpeech: (() -> Void)?
+    /// A turn just completed: `statement` is the response as it was read out,
+    /// and `turn` is the turn it belonged to. Fires for every advancing row —
+    /// speech finishing, "Got it!", and an empty response — so a caller that
+    /// relays a finished answer elsewhere cannot be stranded by a turn that
+    /// advanced without speech (R-DEB-1).
+    public var onTurnAdvanced: ((_ statement: String, _ turn: Int) -> Void)?
 
     public func setHighlight(_ range: NSRange?) { highlightRange = range }
 
-    public init() {
+    /// `micEnabled` starts false only where speech input makes no sense — a
+    /// debate seat, whose turns arrive as text from the other seat. Opening
+    /// such a window with the mic live would take the microphone and raise a
+    /// permission prompt for a window that will never listen.
+    public init(micEnabled: Bool = true) {
         machine.autoPlayEnabled = speechAvailable
         // R-STT-8 — a turn starts in dictation mode with the mic live. The
         // permission prompt therefore lands on first use, not at launch.
-        machine.micEnabled = true
+        machine.micEnabled = micEnabled
     }
 
     // MARK: Derived (§6.1, §6.6)
@@ -245,7 +261,18 @@ public final class ConversationModel {
             break
         }
 
-        if transition.effects.advancesTurn { commitTurn(number: beforeTurn) }
+        if transition.effects.advancesTurn {
+            // `commitTurn` clears `receivedResponse`, so the statement is read
+            // out of the model first.
+            let statement = spokenStatement()
+            commitTurn(number: beforeTurn)
+            if let onTurnAdvanced {
+                // Deferred a tick: a relay handler drives *another* model's
+                // send() synchronously, and this transition's own effects —
+                // including the recogniser restart below — must finish first.
+                Task { @MainActor in onTurnAdvanced(statement, beforeTurn) }
+            }
+        }
 
         if case .start = transition.effects.recognizer {
             onRecognizer?(transition.effects.recognizer)
@@ -580,6 +607,29 @@ public final class ConversationModel {
     }
 
     // MARK: History (§6.5)
+
+    /// What was actually said for this turn: the response as received, or the
+    /// person's edit of it if they changed the pane before it was read
+    /// (the test `commitTurn` uses for `responseWasEdited`).
+    private func spokenStatement() -> String {
+        let edited = !presentedResponse.isEmpty && plainResponse != presentedResponse
+        return edited ? plainResponse : receivedResponse
+    }
+
+    /// Puts `text` in the prompt pane as if it had been typed there, and sends
+    /// it when asked. Everything goes through `send()`, so the state machine,
+    /// the history commit and the empty-send rejection all still apply —
+    /// unlike writing to the turn coordinator directly, which would leave the
+    /// window showing one thing and the peer another.
+    public func submitPrompt(_ text: String, autoSend: Bool = true) {
+        clearVolatile()
+        promptText = NSAttributedString(string: text, attributes: [
+            .font: Metrics.bodyFont,
+            .foregroundColor: NSColor.labelColor,
+        ])
+        promptCaretRequest = NSRange(location: (text as NSString).length, length: 0)
+        if autoSend { send() }
+    }
 
     private func commitTurn(number: Int) {
         // R-TXT-9 — history records the response as received, not as edited.

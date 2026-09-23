@@ -25,11 +25,18 @@ public final class Session {
     /// menu bar.
     public var onDisposed: (@Sendable (String) -> Void)?
 
+    /// The seat this window holds, when it is part of a debate.
+    public let debateSeat: DebateSeat?
+
     public init(id: String, title: String?, hostName: String?, cwd: String? = nil,
-                model modelName: String? = nil) {
+                model modelName: String? = nil, debateSeat: DebateSeat? = nil) {
         self.id = id
         self.coordinator = TurnCoordinator()
-        self.model = ConversationModel()
+        self.debateSeat = debateSeat
+        // A debate seat never listens: its turns arrive as text from the other
+        // seat, so opening with the mic live would take the microphone (and
+        // raise a permission prompt) for a window that will never use it.
+        self.model = ConversationModel(micEnabled: debateSeat == nil)
         self.model.hostName = hostName
         self.model.projectName = cwd.flatMap(Self.projectName(fromCwd:))
         self.model.workingDirectory = cwd.map { ($0 as NSString).abbreviatingWithTildeInPath }
@@ -38,7 +45,9 @@ public final class Session {
         // The host is shown in the header badge, so the title names only the
         // project, rather than repeating the host a few pixels away.
         let windowTitle = title ?? model.projectName.map { "\(appName) — \($0)" } ?? appName
-        self.windowController = ConversationWindowController(model: model, title: windowTitle)
+        self.windowController = ConversationWindowController(
+            model: model, title: windowTitle,
+            autosaveName: debateSeat.map { "VoiceChatDebateSeat-\($0.key)" })
 
         wire()
         observeMute()
@@ -123,17 +132,27 @@ public final class Session {
             self?.listening.contextualPhrases = phrases
         }
 
+        model.onTurnAdvanced = { [weak self] statement, _ in
+            self?.onStatementCompleted?(statement)
+        }
+
         model.onSubmitPrompt = { [weak self] text in
             guard let self else { return }
+            let outgoing = self.debateSeat == nil
+                ? text
+                : DebateRoom.markModeratorEdits(sent: text, delivered: self.deliveredStatement)
+            self.deliveredStatement = nil
+            self.onPromptSent?()
             self.onProgress?(id, .idle)
             Task { await coordinator.markSubmitted() }
-            Task { await coordinator.queuePrompt(text) }
+            Task { await coordinator.queuePrompt(outgoing) }
         }
 
         model.onEnd = { [weak self] reason in
             guard let self else { return }
             Task { await coordinator.end(reason) }
             self.onEnded?(id, reason)
+            self.notifyDebateEnded()
             // The person ended it deliberately — close right away rather than
             // lingering on the banner.
             if reason == .userEnded {
@@ -153,6 +172,7 @@ public final class Session {
             self.model.endedByPeer(.windowClosed)
             Task { await coordinator.end(.windowClosed) }
             self.onEnded?(id, .windowClosed)
+            self.notifyDebateEnded()
         }
         windowController.onWindowDidClose = { [weak self] in
             self?.onDisposed?(id)
@@ -160,6 +180,32 @@ public final class Session {
     }
 
     public func show() { windowController.present() }
+
+    /// A debate seat is placed beside its opponent, and only the first seat
+    /// takes focus — the second arriving must not snatch it away.
+    public func show(seatIndex: Int, of seatCount: Int) {
+        windowController.present(frame: DebateLayout.frame(seatIndex: seatIndex, seatCount: seatCount),
+                                 activating: seatIndex == 0)
+    }
+
+    /// How this seat is spoken, so the two sides do not sound alike.
+    public func applyDelivery(_ delivery: DebateVoices.Delivery) {
+        speech.voiceIdentifier = delivery.voiceIdentifier
+        speech.pitch = delivery.pitch
+        speech.rate = delivery.rate
+    }
+
+    // MARK: Debate seat (R-DEB-1)
+
+    public var onStatementCompleted: ((String) -> Void)?
+    public var onPromptSent: (() -> Void)?
+    public var onSessionEnded: (() -> Void)?
+    /// Ending this session because the debate ended must not be reported back
+    /// as a seat leaving, or the two seats would end each other in circles.
+    private var isEndingForDebate = false
+    /// The last statement put in this window's pane, so anything else that
+    /// goes out is recognisably the moderator's.
+    private var deliveredStatement: String?
 
     /// The host's MCP roots, reported after the session opened and whenever
     /// they change.
@@ -183,6 +229,13 @@ public final class Session {
         model.endedByPeer(reason)
         Task { [coordinator] in await coordinator.end(reason) }
         scheduleAutoClose()
+        notifyDebateEnded()
+    }
+
+    private func notifyDebateEnded() {
+        guard !isEndingForDebate else { return }
+        isEndingForDebate = true
+        onSessionEnded?()
     }
 
     /// R-STT-26 — a denial degrades speech and nothing else, so the wording
@@ -205,5 +258,36 @@ public final class Session {
             guard let self, !self.model.historyExpanded else { return }
             self.windowController.closeQuietly()
         }
+    }
+}
+
+// MARK: - A session as a debate seat
+
+extension Session: DebateParticipant {
+    public var seatKey: String { debateSeat?.key ?? id }
+
+    /// The opponent's statement, put in this window's prompt pane. It is sent
+    /// only when asked — normally the moderator presses Send.
+    public func deliver(_ text: String, autoSend: Bool) {
+        deliveredStatement = text
+        model.submitPrompt(text, autoSend: autoSend)
+    }
+
+    public func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void) {
+        model.onDebateSkipTurn = skip
+        model.onDebateEnd = end
+    }
+
+    public func showDebateStatus(_ badge: DebateBadge) {
+        model.debate = badge
+    }
+
+    public func endDebate() {
+        guard !isEndingForDebate else { return }
+        isEndingForDebate = true
+        model.endedByPeer(.userEnded)
+        Task { [coordinator] in await coordinator.end(.userEnded) }
+        scheduleAutoClose()
+        onEnded?(id, .userEnded)
     }
 }

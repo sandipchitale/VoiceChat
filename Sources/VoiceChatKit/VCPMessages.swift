@@ -72,6 +72,7 @@ public struct VCPError: Error, Sendable, Codable, Equatable {
         public static let vcpVersionUnsupported = -32013
         public static let sessionLimitReached = -32014
         public static let daemonShuttingDown = -32015
+        public static let debateSeatUnavailable = -32016
         public static let parseError = -32700
         public static let invalidRequest = -32600
         public static let methodNotFound = -32601
@@ -85,6 +86,12 @@ public struct VCPError: Error, Sendable, Codable, Equatable {
     public static let turnAlreadyAwaited = VCPError(code: Code.turnAlreadyAwaited, message: "turn_already_awaited")
     public static let unknownSession = VCPError(code: Code.unknownSession, message: "unknown_session")
     public static let daemonShuttingDown = VCPError(code: Code.daemonShuttingDown, message: "daemon_shutting_down")
+
+    /// The seat was taken, or the room does not exist. `message` is written to
+    /// be read by the model as-is.
+    public static func debateSeatUnavailable(_ message: String) -> VCPError {
+        VCPError(code: Code.debateSeatUnavailable, message: message)
+    }
 
     public static func versionUnsupported(accepted: [Int]) -> VCPError {
         VCPError(code: Code.vcpVersionUnsupported, message: "vcp_version_unsupported",
@@ -108,6 +115,8 @@ public struct VCPError: Error, Sendable, Codable, Equatable {
             return "VoiceChat declined to open another conversation window. Tell the user to close an existing one, then stop."
         case Code.daemonShuttingDown:
             return "VoiceChat is quitting. Tell the user to relaunch it, then stop."
+        case Code.debateSeatUnavailable:
+            return message
         default:
             return "VoiceChat reported an error: \(message). Tell the user and stop."
         }
@@ -149,10 +158,12 @@ public struct SessionOpenParams: Sendable, Codable, Equatable {
     public var cwd: String?
     /// The model driving the first `converse` call, if the caller supplied one.
     public var model: String?
+    /// The debate seat this client is claiming, if any.
+    public var debate: DebateJoin?
     public init(sessionId: String, title: String? = nil, host: String? = nil, cwd: String? = nil,
-                model: String? = nil) {
+                model: String? = nil, debate: DebateJoin? = nil) {
         self.sessionId = sessionId; self.title = title; self.host = host; self.cwd = cwd
-        self.model = model
+        self.model = model; self.debate = debate
     }
 }
 

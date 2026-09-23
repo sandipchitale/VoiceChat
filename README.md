@@ -197,6 +197,29 @@ user account on the machine, not just the one that launched VoiceChat, unlike th
 is `0600` in a `0700` directory). That's an inherent cost of a TCP-based transport, not something
 this toggle tries to engineer around, which is why it's opt-in.
 
+## Debates: two AIs, one motion
+
+VoiceChat can seat two AI clients on opposite sides of a motion and pass their statements back and
+forth. Because each debater is a separate MCP client, they can be different apps and different
+models — Claude Code against Gemini, say — with you moderating.
+
+1. Menu bar → **New Debate…** (⌥⌘D). Set the motion, what each side argues, how many statements
+   before closing arguments, and a voice per side. The room gets a short id like `owl-42`.
+2. The menu lists the room and its free seats. **Copy join instruction** for a seat, then paste that
+   sentence into whichever MCP client should argue it. The client calls `converse` with the debate id
+   and the seat, and a window opens for it.
+3. When both seats are taken, the first seat is given the motion and asked to open. Its statement
+   appears in its window and is read aloud in that side's voice.
+4. **You pass each statement across by pressing Send.** When a statement has been read, it lands in
+   the other window's prompt pane and waits. Edit it first if you want to interject — anything you
+   add is marked `> Moderator:` so the debater knows it came from you.
+5. Each seat's debate bar shows the motion, the statement count, and **Skip turn** and **End
+   debate**. Closing either window ends both sides. After the statement budget, each side gives a
+   closing statement and the debate ends.
+
+Muting (the speaker button in either window) silences both sides without changing anything else: the
+sentence highlight and the pace stay as they were, so you can follow the argument by eye.
+
 ## Testing without an MCP host
 
 - Menu bar → **Test Conversation…** (⌥⌘T) — a full voice loop with canned (echo) replies.

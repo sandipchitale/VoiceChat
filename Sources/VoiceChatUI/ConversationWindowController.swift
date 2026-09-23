@@ -24,7 +24,7 @@ public final class ConversationWindowController: NSWindowController, NSWindowDel
     public var onWindowDidClose: (() -> Void)?
     private var suppressCloseCallback = false
 
-    public init(model: ConversationModel, title: String) {
+    public init(model: ConversationModel, title: String, autosaveName: String? = nil) {
         self.model = model
 
         // Frameless, translucent, always on top — a pane of held glass rather
@@ -43,7 +43,10 @@ public final class ConversationWindowController: NSWindowController, NSWindowDel
         window.level = .floating
         window.isMovableByWindowBackground = true
         window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-        window.setFrameAutosaveName("VoiceChatConversationWindow")
+        // One name per window: debate seats each remember their own place
+        // instead of overwriting a single shared frame.
+        window.setFrameAutosaveName(NSWindow.FrameAutosaveName(
+            autosaveName ?? "VoiceChatConversationWindow"))
         window.isReleasedWhenClosed = false
 
         super.init(window: window)
@@ -91,13 +94,22 @@ public final class ConversationWindowController: NSWindowController, NSWindowDel
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
 
-    public func present() {
+    public func present() { present(frame: nil, activating: true) }
+
+    /// `frame` places the window deliberately (a debate seat) instead of
+    /// centring it; `activating` is false for the second window of a pair, so
+    /// taking a seat does not yank focus away from the first.
+    public func present(frame: NSRect?, activating: Bool) {
         guard let window else { return }
-        if !window.isVisible { window.center() }
+        if let frame {
+            window.setFrame(frame, display: true)
+        } else if !window.isVisible {
+            window.center()
+        }
         window.makeKeyAndOrderFront(nil)
         // An accessory app gets no activation for free, and a conversation
         // window nobody can see defeats the entire point of the tool call.
-        NSApp.activate(ignoringOtherApps: true)
+        if activating { NSApp.activate(ignoringOtherApps: true) }
     }
 
     /// Close without reporting it as a person-initiated end (R-VCP-15).
