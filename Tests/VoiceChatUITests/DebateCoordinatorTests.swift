@@ -191,15 +191,18 @@ struct DebatePresentationTests {
         #expect(frames[0].intersects(frames[1]) == false)
     }
 
-    @Test("each seat gets a different voice")
-    func distinctVoices() {
+    @Test("both seats use the standard voice unless one was chosen")
+    func standardVoiceByDefault() {
         let seats = [DebateSeat(key: "for", name: "For", position: "yes"),
                      DebateSeat(key: "against", name: "Against", position: "no")]
         let available = [(name: "Alex", identifier: "voice.alex"),
                          (name: "Samantha", identifier: "voice.samantha")]
         let deliveries = DebateVoices.deliveries(for: seats, available: available)
         #expect(deliveries.count == 2)
-        #expect(deliveries[0].voiceIdentifier != deliveries[1].voiceIdentifier)
+        #expect(deliveries.allSatisfy { $0.voiceIdentifier == nil },
+                "picking for the person lands on the novelty voices")
+        #expect(deliveries[0].pitch != deliveries[1].pitch, "still told apart by ear")
+        #expect(deliveries[0].rate != deliveries[1].rate)
     }
 
     @Test("a seat's chosen voice is honoured, by name or identifier")
@@ -210,17 +213,15 @@ struct DebatePresentationTests {
                          (name: "Samantha", identifier: "voice.samantha")]
         let deliveries = DebateVoices.deliveries(for: seats, available: available)
         #expect(deliveries[0].voiceIdentifier == "voice.samantha")
-        #expect(deliveries[1].voiceIdentifier == "voice.alex")
+        #expect(deliveries[1].voiceIdentifier == nil, "the unset seat stays standard")
     }
 
-    @Test("one installed voice still tells the sides apart, by pitch and rate")
-    func fallsBackToPitch() {
-        let seats = [DebateSeat(key: "for", name: "For", position: "yes"),
-                     DebateSeat(key: "against", name: "Against", position: "no")]
+    @Test("an unknown voice name falls back to standard rather than failing")
+    func unknownVoiceFallsBack() {
+        let seats = [DebateSeat(key: "for", name: "For", position: "yes", voice: "Nonesuch")]
         let deliveries = DebateVoices.deliveries(for: seats,
                                                  available: [(name: "Alex", identifier: "voice.alex")])
-        #expect(deliveries[0].pitch != deliveries[1].pitch)
-        #expect(deliveries[0].rate != deliveries[1].rate)
+        #expect(deliveries[0].voiceIdentifier == nil)
     }
 }
 

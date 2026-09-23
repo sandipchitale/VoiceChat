@@ -1787,12 +1787,18 @@ be sent for the person. Anything the person adds or changes before sending is at
 
 `R-DEB-7` The first seat opens. Each briefing requires a debater to name itself in the first sentence
 of every statement, so a listener — or a muted observer reading the highlight — always knows who is
-speaking. Each seat is given a distinct voice, falling back to distinct pitch and rate where the Mac
-has only one voice installed.
+speaking. Both seats speak in the Mac's standard voice unless the person chooses otherwise — picking
+for them sorts straight into the novelty voices — and are separated instead by a small pitch and rate
+difference.
 
 `R-DEB-8` Each seat's window carries a debate bar showing the motion, the seat, the statement count,
 what it is waiting for, and the moderator's **Skip turn** and **End debate**. Ending one seat ends
 the other exactly once, and a finished room's id stops working immediately.
+
+`R-DEB-10` Each seat's bar carries an **Auto** switch, off by default and per window: while it is on,
+a statement arriving in that window is passed to its debater without waiting for Send, and switching
+it on sends a statement already waiting. One side may run automatically while the other is still
+moderated by hand.
 
 `R-DEB-9` Debate windows open with the microphone off — their turns arrive as text — and are placed
 beside one another, stacking top and bottom where the screen is too narrow for two windows at

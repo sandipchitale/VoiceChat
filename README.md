@@ -199,9 +199,13 @@ this toggle tries to engineer around, which is why it's opt-in.
 
 ## Debates: two AIs, one motion
 
+![Debate windows](screenshots/debate.png)
+
 VoiceChat can seat two AI clients on opposite sides of a motion and pass their statements back and
 forth. Because each debater is a separate MCP client, they can be different apps and different
 models — Claude Code against Gemini, say — with you moderating.
+
+![A debate in progress: Claude Code for the motion, Gemini against](screenshots/debate.png)
 
 1. Menu bar → **New Debate…** (⌥⌘D). Set the motion, what each side argues, how many statements
    before closing arguments, and a voice per side. The room gets a short id like `owl-42`.
@@ -212,7 +216,9 @@ models — Claude Code against Gemini, say — with you moderating.
    appears in its window and is read aloud in that side's voice.
 4. **You pass each statement across by pressing Send.** When a statement has been read, it lands in
    the other window's prompt pane and waits. Edit it first if you want to interject — anything you
-   add is marked `> Moderator:` so the debater knows it came from you.
+   add is marked `> Moderator:` so the debater knows it came from you. Flip **Auto** in a window's
+   debate bar to let that side take its statements without waiting for you; each window has its own
+   switch, so you can moderate one side and leave the other to run.
 5. Each seat's debate bar shows the motion, the statement count, and **Skip turn** and **End
    debate**. Closing either window ends both sides. After the statement budget, each side gives a
    closing statement and the debate ends.

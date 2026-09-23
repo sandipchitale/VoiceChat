@@ -2,10 +2,13 @@ import AVFoundation
 import Foundation
 import VoiceChatKit
 
-// Two debaters, two voices. A debate whose sides sound alike is hard to follow,
-// especially for someone watching with the sound off and reading the
-// highlight, so the seats are always made to differ — by voice where the Mac
-// has two installed, and by pitch and rate where it does not.
+// How a debate's seats are spoken.
+//
+// Both seats use the Mac's standard voice unless the person picks otherwise:
+// choosing for them lands on whatever sorts first, which on macOS means the
+// novelty voices (Albert, Bad News, Bubbles…) and makes a debate ridiculous.
+// The sides are instead separated by a small pitch and rate difference, which
+// is enough to tell them apart while both still sound normal.
 //
 // A missing or misspelled voice never fails a debate; it falls back.
 
@@ -26,43 +29,36 @@ public enum DebateVoices {
         }
     }
 
-    /// The installed voices for the interface language, newest style first.
+    /// Legacy novelty voices — "Bad News", "Boing", "Bubbles" — all share this
+    /// prefix. Nobody wants a debate argued by them, so they are kept out of
+    /// the picker.
+    private static let noveltyPrefix = "com.apple.speech.synthesis.voice."
+
+    /// The speaking voices installed for the interface language.
     public static func installed() -> [(name: String, identifier: String)] {
         let language = Locale.current.language.languageCode?.identifier ?? "en"
         return AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix(language) }
+            .filter { $0.language.hasPrefix(language) && !$0.identifier.hasPrefix(noveltyPrefix) }
             .map { (name: $0.name, identifier: $0.identifier) }
             .sorted { $0.name < $1.name }
     }
 
-    /// A delivery per seat, in seat order, guaranteed to differ from each other.
-    /// `available` is injectable so the rule can be tested without the Mac's
-    /// own voice list.
+    /// A delivery per seat, in seat order. A seat speaks in the voice the
+    /// person chose for it, or in the Mac's standard voice; either way the
+    /// seats are given slightly different pitch and rate so they are still
+    /// told apart by ear. `available` is injectable so the rule can be tested
+    /// without the Mac's own voice list.
     public static func deliveries(for seats: [DebateSeat],
                                   available: [(name: String, identifier: String)]) -> [Delivery] {
-        var used: Set<String> = []
-        var deliveries: [Delivery] = []
-
-        for seat in seats {
-            let chosen = resolve(seat.voice, in: available)
-            // A voice already spoken for is no use: take the next free one.
-            let identifier = (chosen.map { used.contains($0) ? nil : $0 } ?? nil)
-                ?? available.map(\.identifier).first { !used.contains($0) }
-            if let identifier { used.insert(identifier) }
-            deliveries.append(Delivery(voiceIdentifier: identifier))
+        seats.enumerated().map { index, seat in
+            // Nil means the system voice — never a voice picked on the
+            // person's behalf.
+            var delivery = Delivery(voiceIdentifier: resolve(seat.voice, in: available))
+            let step = Float(index) - Float(seats.count - 1) / 2
+            delivery.pitch = 1.0 + 0.12 * step
+            delivery.rate = AVSpeechUtteranceDefaultSpeechRate * (1.0 + 0.06 * step)
+            return delivery
         }
-
-        // Not enough distinct voices on this Mac: separate the seats by pitch
-        // and rate instead, so they are still told apart by ear.
-        let distinct = Set(deliveries.compactMap(\.voiceIdentifier))
-        if distinct.count < seats.count {
-            for index in deliveries.indices {
-                let step = Float(index) - Float(deliveries.count - 1) / 2
-                deliveries[index].pitch = 1.0 + 0.15 * step
-                deliveries[index].rate = AVSpeechUtteranceDefaultSpeechRate * (1.0 + 0.08 * step)
-            }
-        }
-        return deliveries
     }
 
     /// A seat's requested voice: an identifier, or a name like "Samantha".

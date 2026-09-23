@@ -30,6 +30,7 @@ public struct ConversationView: View {
             }
             if let debate = model.debate {                        // R-DEB-8
                 DebateBar(badge: debate,
+                          autoHandoff: $model.debateAutoHandoff,
                           onSkip: { model.onDebateSkipTurn?() },
                           onEnd: { model.onDebateEnd?() })
             }

@@ -76,6 +76,18 @@ public final class ConversationModel {
     public var onDebateSkipTurn: (() -> Void)?
     public var onDebateEnd: (() -> Void)?
 
+    /// R-DEB-10 — when on, a statement arriving in this window is passed to
+    /// its debater without waiting for Send. Per window, so one side can run
+    /// itself while the other is still moderated by hand.
+    public var debateAutoHandoff = false {
+        didSet {
+            guard debateAutoHandoff, oldValue != debateAutoHandoff else { return }
+            // Switching it on with a statement already waiting sends that one
+            // too, rather than stranding it until the next handover.
+            if debate?.awaitingSend == true, canSend { send() }
+        }
+    }
+
     public var hostName: String?
     /// The last path component of the host's working directory, if known — the
     /// "project" this conversation belongs to.
@@ -628,7 +640,7 @@ public final class ConversationModel {
             .foregroundColor: NSColor.labelColor,
         ])
         promptCaretRequest = NSRange(location: (text as NSString).length, length: 0)
-        if autoSend { send() }
+        if autoSend || debateAutoHandoff { send() }
     }
 
     private func commitTurn(number: Int) {

@@ -9,6 +9,7 @@ import VoiceChatKit
 
 struct DebateBar: View {
     let badge: DebateBadge
+    @Binding var autoHandoff: Bool
     let onSkip: () -> Void
     let onEnd: () -> Void
     @Environment(\.colorScheme) private var scheme
@@ -40,6 +41,12 @@ struct DebateBar: View {
                 .help(progress)
 
             if !badge.isOver {
+                Toggle("Auto", isOn: $autoHandoff)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .tint(Glass.accent)
+                    .help("Pass each arriving statement straight to this side, without pressing Send")
+                    .accessibilityLabel("Automatic handover")
                 Button("Skip turn", action: onSkip)
                     .buttonStyle(GlassButtonStyle())
                     .help("Offer the last statement to the other side again, when a debater has stopped answering")

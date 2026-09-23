@@ -148,3 +148,63 @@ struct DebateRelayTests {
         #expect(fired == 1)
     }
 }
+
+@MainActor
+@Suite("Automatic handover — R-DEB-10")
+struct DebateAutoHandoffTests {
+
+    private func model() -> ConversationModel {
+        let m = ConversationModel(micEnabled: false)
+        m.open()
+        return m
+    }
+
+    @Test("off by default: a statement waits in the pane for Send")
+    func waitsByDefault() {
+        let m = model()
+        var sent: [String] = []
+        m.onSubmitPrompt = { sent.append($0) }
+
+        m.submitPrompt("their statement", autoSend: false)
+        #expect(sent.isEmpty)
+        #expect(m.plainPrompt == "their statement")
+    }
+
+    @Test("on: a statement is passed straight to this side")
+    func sendsWhenOn() {
+        let m = model()
+        var sent: [String] = []
+        m.onSubmitPrompt = { sent.append($0) }
+        m.debateAutoHandoff = true
+
+        m.submitPrompt("their statement", autoSend: false)
+        #expect(sent == ["their statement"])
+    }
+
+    @Test("switching it on sends the statement already waiting")
+    func sendsTheWaitingStatement() {
+        let m = model()
+        var sent: [String] = []
+        m.onSubmitPrompt = { sent.append($0) }
+        m.debate = DebateBadge(roomID: "owl-42", motion: "a motion", seatName: "For",
+                               position: "yes", awaitingSend: true)
+
+        m.submitPrompt("their statement", autoSend: false)
+        #expect(sent.isEmpty)
+
+        m.debateAutoHandoff = true
+        #expect(sent == ["their statement"], "no need to press Send for the one already there")
+    }
+
+    @Test("switching it on with nothing waiting sends nothing")
+    func nothingToSend() {
+        let m = model()
+        var sent: [String] = []
+        m.onSubmitPrompt = { sent.append($0) }
+        m.debate = DebateBadge(roomID: "owl-42", motion: "a motion", seatName: "For",
+                               position: "yes", awaitingSend: false)
+
+        m.debateAutoHandoff = true
+        #expect(sent.isEmpty)
+    }
+}
