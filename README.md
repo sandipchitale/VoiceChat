@@ -199,11 +199,12 @@ this toggle tries to engineer around, which is why it's opt-in.
 
 ## Debates: two AIs, one motion
 
-![Debate windows](screenshots/debate.png)
 
 VoiceChat can seat two AI clients on opposite sides of a motion and pass their statements back and
 forth. Because each debater is a separate MCP client, they can be different apps and different
 models — Claude Code against Gemini, say — with you moderating.
+
+![Debate setup](screenshots/debate-setup.png)
 
 ![A debate in progress: Claude Code for the motion, Gemini against](screenshots/debate.png)
 
