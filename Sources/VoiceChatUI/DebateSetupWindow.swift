@@ -34,10 +34,9 @@ public final class DebateSetupWindowController: NSWindowController {
         window.level = .floating
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
-        window.appearance = GlassSettings.shared.theme.appearance
-
         super.init(window: window)
         window.delegate = self
+        observeTheme()
 
         let root = DebateSetupView(
             onCreate: { [weak self] room in
@@ -67,6 +66,17 @@ public final class DebateSetupWindowController: NSWindowController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not supported") }
 
+    /// Follows the theme the header's buttons set, as conversation windows do;
+    /// otherwise switching to Light leaves this dialog dark behind them.
+    private func observeTheme() {
+        withObservationTracking {
+            _ = GlassSettings.shared.theme
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeTheme() }
+        }
+        window?.appearance = GlassSettings.shared.theme.appearance
+    }
+
     private func present() {
         guard let window else { return }
         if !window.isVisible { window.center() }
@@ -91,7 +101,8 @@ private struct DebateSetupView: View {
     @State private var forPosition = ""
     @State private var againstPosition = ""
     @State private var statements = 6
-    @State private var guidance = "Keep each statement under 120 words."
+    private static let defaultGuidance = "Keep each statement under 120 words."
+    @State private var guidance = DebateSetupView.defaultGuidance
     @State private var forVoice = ""
     @State private var againstVoice = ""
     @FocusState private var focus: Field?
@@ -100,6 +111,11 @@ private struct DebateSetupView: View {
     private enum Field: Hashable { case motion, forSide, againstSide, rules }
 
     private static let statementRange = 2...40
+
+    private func adjustStatements(by delta: Int) {
+        statements = min(max(statements + delta, Self.statementRange.lowerBound),
+                         Self.statementRange.upperBound)
+    }
 
     /// One half of the count control: a proper target, not a 7-point arrow.
     @ViewBuilder
@@ -120,7 +136,9 @@ private struct DebateSetupView: View {
         .disabled(!enabled)
     }
 
-    private var voices: [(name: String, identifier: String)] { DebateVoices.installed() }
+    /// Read once: the installed voices cannot change while this is open, and
+    /// the body re-evaluates on every keystroke.
+    @State private var voices = DebateVoices.installed()
 
     private var trimmedMotion: String {
         motion.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -159,18 +177,8 @@ private struct DebateSetupView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            Button(action: onCancel) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.primary.opacity(0.85))
-                    .frame(width: 20, height: 20)
-                    .background(Circle().fill(Glass.danger.opacity(0.28)))
-                    .overlay(Circle().strokeBorder(Glass.danger.opacity(0.75), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .keyboardShortcut(.cancelAction)
-            .help("Close without creating a debate")
-            .accessibilityLabel("Close")
+            CloseButton(help: "Close without creating a debate", action: onCancel)
+                .keyboardShortcut(.cancelAction)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("NEW DEBATE")
@@ -193,17 +201,21 @@ private struct DebateSetupView: View {
 
     private var motionCard: some View {
         card(title: "Motion", active: focus == .motion) {
-            // A vertical TextField rather than a TextEditor: its prompt is
-            // drawn where the caret actually is, instead of an overlay guessing
-            // at the text inset.
-            TextField("", text: $motion,
-                      prompt: Text("Does consciousness require a biological substrate?"),
-                      axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(.system(size: Metrics.bodyPointSize))
-                .lineLimit(3...6)
-                .focused($focus, equals: .motion)
+            wrappingField($motion, prompt: "Does consciousness require a biological substrate?",
+                          lines: 3...6, field: .motion)
         }
+    }
+
+    /// A vertical TextField rather than a TextEditor: its prompt is drawn
+    /// where the caret actually is, instead of an overlay guessing at the
+    /// text inset.
+    private func wrappingField(_ text: Binding<String>, prompt: String,
+                               lines: ClosedRange<Int>, field: Field) -> some View {
+        TextField("", text: text, prompt: Text(prompt), axis: .vertical)
+            .textFieldStyle(.plain)
+            .font(.system(size: Metrics.bodyPointSize))
+            .lineLimit(lines)
+            .focused($focus, equals: field)
     }
 
     private func seatCard(_ title: String, key: String,
@@ -211,11 +223,7 @@ private struct DebateSetupView: View {
                           placeholder: String, field: Field) -> some View {
         card(title: title, trailing: "“\(key)”", active: focus == field) {
             VStack(alignment: .leading, spacing: 12) {
-                TextField("", text: position, prompt: Text(placeholder), axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: Metrics.bodyPointSize))
-                    .lineLimit(2...4)
-                    .focused($focus, equals: field)
+                wrappingField(position, prompt: placeholder, lines: 2...4, field: field)
 
                 HStack(spacing: 8) {
                     Text("Voice")
@@ -238,8 +246,7 @@ private struct DebateSetupView: View {
     private var rulesCard: some View {
         HStack(alignment: .top, spacing: Metrics.paneGap) {
             card(title: "House rules", active: focus == .rules) {
-                TextField("", text: $guidance,
-                          prompt: Text("Keep each statement under 120 words."))
+                TextField("", text: $guidance, prompt: Text(Self.defaultGuidance))
                     .textFieldStyle(.plain)
                     .font(.system(size: Metrics.bodyPointSize))
                     .focused($focus, equals: .rules)
@@ -248,7 +255,7 @@ private struct DebateSetupView: View {
             card(title: "Statements", trailing: "then closings", active: false) {
                 HStack(spacing: 0) {
                     countButton("minus", enabled: statements > Self.statementRange.lowerBound) {
-                        statements = max(Self.statementRange.lowerBound, statements - 1)
+                        adjustStatements(by: -1)
                     }
                     Text("\(statements)")
                         .font(.system(size: 20, weight: .medium, design: .monospaced))
@@ -256,7 +263,7 @@ private struct DebateSetupView: View {
                         .contentTransition(.numericText())
                         .animation(.snappy(duration: 0.15), value: statements)
                     countButton("plus", enabled: statements < Self.statementRange.upperBound) {
-                        statements = min(Self.statementRange.upperBound, statements + 1)
+                        adjustStatements(by: 1)
                     }
                 }
                 .frame(height: 26)
@@ -266,10 +273,8 @@ private struct DebateSetupView: View {
                 .accessibilityValue("\(statements)")
                 .accessibilityAdjustableAction { direction in
                     switch direction {
-                    case .increment:
-                        statements = min(Self.statementRange.upperBound, statements + 1)
-                    case .decrement:
-                        statements = max(Self.statementRange.lowerBound, statements - 1)
+                    case .increment: adjustStatements(by: 1)
+                    case .decrement: adjustStatements(by: -1)
                     @unknown default: break
                     }
                 }
@@ -302,17 +307,8 @@ private struct DebateSetupView: View {
             content()
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(scheme.wash.opacity(GlassSettings.shared.paneTint),
-                            in: RoundedRectangle(cornerRadius: Metrics.cardRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                        .strokeBorder(active ? Glass.accent.opacity(0.85) : scheme.hairline,
-                                      lineWidth: active ? 1.5 : 1))
-                .overlay(
-                    CornerBrackets(radius: Metrics.cardRadius, length: 12)
-                        .stroke(Glass.accent.opacity(active ? 1 : 0.35),
-                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                        .allowsHitTesting(false))
+                .background(scheme.wash.opacity(GlassSettings.shared.paneTint))
+                .glassCard(isActive: active, bracketLength: 12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

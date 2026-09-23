@@ -9,7 +9,7 @@ import VoiceChatKit
 
 struct DebateBar: View {
     let badge: DebateBadge
-    @Binding var autoHandoff: Bool
+    let onAutoHandoff: (Bool) -> Void
     let onSkip: () -> Void
     let onEnd: () -> Void
     @Environment(\.colorScheme) private var scheme
@@ -41,7 +41,7 @@ struct DebateBar: View {
                 .help(progress)
 
             if !badge.isOver {
-                Toggle("Auto", isOn: $autoHandoff)
+                Toggle("Auto", isOn: Binding(get: { badge.autoHandoff }, set: onAutoHandoff))
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .tint(Glass.accent)
@@ -56,9 +56,7 @@ struct DebateBar: View {
             }
         }
         .font(Metrics.captionFont)
-        .padding(.horizontal, Metrics.outerPadding)
-        .frame(height: 34)
-        .background(Glass.accent.opacity(0.12))
+        .accentBar()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Debate \(badge.roomID), \(badge.seatName)")
     }

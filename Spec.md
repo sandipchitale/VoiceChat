@@ -1795,10 +1795,11 @@ difference.
 what it is waiting for, and the moderator's **Skip turn** and **End debate**. Ending one seat ends
 the other exactly once, and a finished room's id stops working immediately.
 
-`R-DEB-10` Each seat's bar carries an **Auto** switch, off by default and per window: while it is on,
+`R-DEB-10` Each seat's bar carries an **Auto** switch, off by default and per seat: while it is on,
 a statement arriving in that window is passed to its debater without waiting for Send, and switching
-it on sends a statement already waiting. One side may run automatically while the other is still
-moderated by hand.
+it on passes along a statement already waiting. One side may run automatically while the other is
+still moderated by hand. The rule belongs to the debate, not to the window: the machine holds the
+per-seat setting and answers it in the `deliver` effect, so it is decided and tested in one place.
 
 `R-DEB-9` Debate windows open with the microphone off — their turns arrive as text — and are placed
 beside one another, stacking top and bottom where the screen is too narrow for two windows at

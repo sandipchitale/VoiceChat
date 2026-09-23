@@ -7,6 +7,10 @@ import SwiftUI
 // the conversation view stays about behaviour.
 
 enum Glass {
+    /// The hairline rule, for the chrome helpers that have no `ColorScheme`
+    /// to ask. `ColorScheme.hairline` stays the per-scheme answer.
+    static let hairline = Color(nsColor: .separatorColor)
+
     /// System cyan — a semantic colour, so it still adapts to contrast settings.
     static let accent = Color(nsColor: .systemCyan)
     static let danger = Color(nsColor: .systemRed)
@@ -209,6 +213,26 @@ struct WindowDragArea: NSViewRepresentable {
     }
 }
 
+/// The red disc every glass window closes from.
+struct CloseButton: View {
+    let help: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.primary.opacity(0.85))
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(Glass.danger.opacity(0.28)))
+                .overlay(Circle().strokeBorder(Glass.danger.opacity(0.75), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel("Close")
+    }
+}
+
 struct HUDHeader: View {
     let title: String
     let subtitle: String
@@ -219,17 +243,7 @@ struct HUDHeader: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.primary.opacity(0.85))
-                    .frame(width: 20, height: 20)
-                    .background(Circle().fill(Glass.danger.opacity(0.28)))
-                    .overlay(Circle().strokeBorder(Glass.danger.opacity(0.75), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .help("Close the window — ends the conversation")
-            .accessibilityLabel("Close window")
+            CloseButton(help: "Close the window — ends the conversation", action: onClose)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -285,6 +299,33 @@ struct HUDHeader: View {
         .frame(height: Metrics.headerHeight)
         .background(WindowDragArea())
         .accessibilityElement(children: .contain)
+    }
+}
+
+extension View {
+    /// R-UI-4 — a card of held glass whose rim, brackets and glow answer to
+    /// focus. One definition, so the panes and the debate dialog cannot drift
+    /// apart on border widths or the glow.
+    func glassCard(isActive: Bool, cornerRadius: CGFloat = Metrics.cardRadius,
+                   bracketLength: CGFloat = 18) -> some View {
+        clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(isActive ? Glass.accent.opacity(0.85) : Glass.hairline,
+                                  lineWidth: isActive ? 1.5 : 1))
+            .overlay(
+                CornerBrackets(radius: cornerRadius, length: bracketLength)
+                    .stroke(Glass.accent.opacity(isActive ? 1 : 0.4),
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                    .allowsHitTesting(false))
+            .shadow(color: isActive ? Glass.accent.opacity(0.35) : .clear, radius: 12)
+    }
+
+    /// The accent strip the banners and the debate bar share.
+    func accentBar() -> some View {
+        padding(.horizontal, Metrics.outerPadding)
+            .frame(height: Metrics.accentBarHeight)
+            .background(Glass.accent.opacity(0.12))
     }
 }
 

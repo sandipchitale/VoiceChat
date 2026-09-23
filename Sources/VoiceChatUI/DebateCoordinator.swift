@@ -18,11 +18,13 @@ public struct DebateBadge: Sendable, Equatable {
     public var notice: String
     /// A statement is sitting in this window's prompt pane, waiting for Send.
     public var awaitingSend: Bool
+    /// This seat hands over without waiting for Send.
+    public var autoHandoff: Bool
     public var isOver: Bool
 
     public init(roomID: String, motion: String, seatName: String, position: String,
                 statementCount: Int = 0, maxStatements: Int = 0, notice: String = "",
-                awaitingSend: Bool = false, isOver: Bool = false) {
+                awaitingSend: Bool = false, autoHandoff: Bool = false, isOver: Bool = false) {
         self.roomID = roomID
         self.motion = motion
         self.seatName = seatName
@@ -31,6 +33,7 @@ public struct DebateBadge: Sendable, Equatable {
         self.maxStatements = maxStatements
         self.notice = notice
         self.awaitingSend = awaitingSend
+        self.autoHandoff = autoHandoff
         self.isOver = isOver
     }
 }
@@ -51,11 +54,13 @@ public protocol DebateParticipant: AnyObject {
     var onSessionEnded: (() -> Void)? { get set }
 
     /// Hands the seat the moderator's controls for its debate bar.
-    func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void)
+    func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void,
+                             autoHandoff: @escaping (Bool) -> Void)
 }
 
 public extension DebateParticipant {
-    func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void) {}
+    func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void,
+                             autoHandoff: @escaping (Bool) -> Void) {}
 }
 
 @MainActor
@@ -102,7 +107,8 @@ public final class DebateCoordinator {
 
         participant.setModeratorActions(
             skip: { [weak self] in self?.skipTurn() },
-            end: { [weak self] in self?.endDebate() })
+            end: { [weak self] in self?.endDebate() },
+            autoHandoff: { [weak self] on in self?.setAutoHandoff(key, on) })
 
         apply(.seatFilled(key))
     }
@@ -111,6 +117,9 @@ public final class DebateCoordinator {
 
     public func skipTurn() { apply(.skipTurn) }
     public func endDebate() { apply(.endRequested) }
+    public func setAutoHandoff(_ seat: String, _ on: Bool) {
+        apply(.setAutoHandoff(seat: seat, on: on))
+    }
 
     // MARK: Effects
 
@@ -143,6 +152,7 @@ public final class DebateCoordinator {
                 maxStatements: room.maxStatements,
                 notice: notice,
                 awaitingSend: machine.phase == .awaitingSend(seat: key),
+                autoHandoff: machine.isAutoHandoff(key),
                 isOver: machine.phase == .ended))
         }
     }

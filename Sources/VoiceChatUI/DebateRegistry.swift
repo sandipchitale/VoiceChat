@@ -43,14 +43,25 @@ public final class DebateRegistry {
         onRoomsChanged?()
     }
 
-    /// Seats `participant`, or throws a sentence saying why it could not.
-    public func seat(_ participant: any DebateParticipant, join: DebateJoin) throws {
+    /// A claim on a free seat, checked before anything is built for it.
+    public struct Reservation: Sendable {
+        public let roomID: String
+        public let seat: DebateSeat
+        /// Where this seat sits among the room's seats — its window's place.
+        public let index: Int
+        public let seatCount: Int
+    }
+
+    /// Checks a claim and says what it is for, or throws a sentence saying why
+    /// it cannot be honoured. Nothing is built or attached here, so a refusal
+    /// costs no window.
+    public func reserve(_ join: DebateJoin) throws -> Reservation {
         guard let coordinator = coordinators[join.roomID] else {
             throw VCPError.debateSeatUnavailable(
                 "There is no debate with id \"\(join.roomID)\". Ask the user to create one from the "
                 + "VoiceChat menu bar, then tell you its id, and stop until they do.")
         }
-        guard coordinator.room.seat(join.seat) != nil else {
+        guard let index = coordinator.room.seats.firstIndex(where: { $0.key == join.seat }) else {
             throw VCPError.debateSeatUnavailable(
                 "Debate \"\(join.roomID)\" has no seat called \"\(join.seat)\". Its seats are "
                 + list(coordinator.room.seats.map(\.key)) + ". Ask the user which one you should take.")
@@ -64,8 +75,20 @@ public final class DebateRegistry {
                 "The \"\(join.seat)\" seat in debate \"\(join.roomID)\" is already taken. "
                 + alternative + " Tell the user and stop.")
         }
-        coordinator.seat(participant)
+        return Reservation(roomID: join.roomID, seat: coordinator.room.seats[index],
+                           index: index, seatCount: coordinator.room.seats.count)
+    }
+
+    /// Takes a reserved seat.
+    public func take(_ reservation: Reservation, with participant: any DebateParticipant) {
+        coordinators[reservation.roomID]?.seat(participant)
         onRoomsChanged?()
+    }
+
+    /// Reserves and takes in one step — the path a test or a caller with
+    /// nothing to build takes.
+    public func seat(_ participant: any DebateParticipant, join: DebateJoin) throws {
+        take(try reserve(join), with: participant)
     }
 
     private func list(_ items: [String]) -> String {
@@ -73,19 +96,4 @@ public final class DebateRegistry {
         guard let last = quoted.last else { return "none" }
         return quoted.count == 1 ? last : quoted.dropLast().joined(separator: ", ") + " and " + last
     }
-}
-
-/// Stands in for a seat just long enough to ask the registry whether it could
-/// be taken. Seating it never succeeds — `DebateRegistry.seat` throws first,
-/// with the sentence explaining why — so the daemon can decline a join without
-/// having built a window for it.
-@MainActor
-final class RejectedSeat: DebateParticipant {
-    let seatKey = ""
-    func deliver(_ text: String, autoSend: Bool) {}
-    func showDebateStatus(_ badge: DebateBadge) {}
-    func endDebate() {}
-    var onStatementCompleted: ((String) -> Void)?
-    var onPromptSent: (() -> Void)?
-    var onSessionEnded: (() -> Void)?
 }

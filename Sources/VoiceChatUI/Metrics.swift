@@ -14,6 +14,9 @@ public enum Metrics {
     public static let footerHeight: CGFloat = 52
     public static let bottomBarHeight: CGFloat = 56
     public static let controlHeight: CGFloat = 28
+    /// The accent strip above the panes: the terminal banner, the history
+    /// peek bar and the debate bar all stand this tall.
+    public static let accentBarHeight: CGFloat = 36
     public static let historyCollapsedHeight: CGFloat = 28
     public static let historyExpandedHeight: CGFloat = 160
 

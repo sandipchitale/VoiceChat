@@ -29,6 +29,8 @@ public enum DebateEffect: Sendable, Equatable {
 
 public enum DebateEvent: Sendable, Equatable {
     case seatFilled(String)
+    /// The moderator switched automatic handover on or off for one seat.
+    case setAutoHandoff(seat: String, on: Bool)
     /// A seat's statement finished being read out.
     case statementCompleted(seat: String, text: String)
     /// The moderator pressed Send in this seat's window.
@@ -53,21 +55,19 @@ public struct DebateMachine: Sendable, Equatable {
     }
     private var lastStatement: Statement?
     private var closingsLeft = 0
+    /// Seats whose moderator asked for automatic handover.
+    private var autoSeats: Set<String> = []
+    /// What is sitting un-sent in a seat's prompt pane, so switching automatic
+    /// handover on can pass along the statement already waiting.
+    private var pendingDelivery: Statement?
+
+    public func isAutoHandoff(_ seat: String) -> Bool { autoSeats.contains(seat) }
 
     public init(room: DebateRoom) {
         self.room = room
     }
 
-    public var isRunning: Bool { phase != .awaitingSeats && phase != .ended }
     public var filledSeats: Int { filled.count }
-
-    /// The seat whose window is currently the one to watch, if any.
-    public var activeSeat: String? {
-        switch phase {
-        case .awaitingSend(let seat), .awaitingStatement(let seat), .closing(let seat): return seat
-        case .awaitingSeats, .ended: return nil
-        }
-    }
 
     /// The seat that actually has the floor — one whose prompt has been sent
     /// and whose answer is awaited. A seat with a statement still sitting
@@ -92,12 +92,21 @@ public struct DebateMachine: Sendable, Equatable {
                 return [.notice("Waiting for the other seat…")]
             }
             briefed.insert(opener.key)
-            phase = .awaitingSend(seat: opener.key)
-            return [.notice("\(opener.name) opens — press Send"),
-                    .deliver(seat: opener.key, text: room.openingPrompt(for: opener), autoSend: false)]
+            return deliver(room.openingPrompt(for: opener), to: opener,
+                           notice: "\(opener.name) opens")
+
+        case .setAutoHandoff(let key, let on):
+            guard room.seat(key) != nil else { return [] }
+            if on { autoSeats.insert(key) } else { autoSeats.remove(key) }
+            // Switching it on with a statement already waiting passes that one
+            // along too, rather than stranding it until the next handover.
+            guard on, let pending = pendingDelivery, pending.seat == key,
+                  let seat = room.seat(key) else { return [] }
+            return deliver(pending.text, to: seat, notice: "\(seat.name) is handing over automatically")
 
         case .promptSent(let key):
             guard case .awaitingSend(let expected) = phase, expected == key else { return [] }
+            pendingDelivery = nil
             phase = closingsLeft > 0 ? .closing(seat: key) : .awaitingStatement(seat: key)
             return []
 
@@ -152,9 +161,18 @@ public struct DebateMachine: Sendable, Equatable {
         let text = closing
             ? room.closingPrompt(statement, from: from, to: to)
             : room.relay(statement, from: from, to: to, includeBriefing: first)
-        phase = .awaitingSend(seat: to.key)
         let what = closing ? "closing statement" : "statement \(statementCount + 1)"
-        return [.notice("\(to.name): \(what) ready — press Send"),
-                .deliver(seat: to.key, text: text, autoSend: false)]
+        return deliver(text, to: to, notice: "\(to.name): \(what)")
+    }
+
+    /// Hands `text` to a seat: it waits in that window's prompt pane unless
+    /// the moderator asked this seat to hand over automatically.
+    private mutating func deliver(_ text: String, to seat: DebateSeat,
+                                  notice: String) -> [DebateEffect] {
+        let auto = autoSeats.contains(seat.key)
+        phase = .awaitingSend(seat: seat.key)
+        pendingDelivery = Statement(seat: seat.key, text: text)
+        return [.notice(auto ? notice : notice + " — press Send"),
+                .deliver(seat: seat.key, text: text, autoSend: auto)]
     }
 }

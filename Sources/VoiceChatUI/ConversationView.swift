@@ -30,7 +30,7 @@ public struct ConversationView: View {
             }
             if let debate = model.debate {                        // R-DEB-8
                 DebateBar(badge: debate,
-                          autoHandoff: $model.debateAutoHandoff,
+                          onAutoHandoff: { model.onDebateAutoHandoff?($0) },
                           onSkip: { model.onDebateSkipTurn?() },
                           onEnd: { model.onDebateEnd?() })
             }
@@ -480,20 +480,7 @@ struct Pane<Editor: View, Footer: View, Notice: View>: View {
                     .frame(height: Metrics.footerHeight)
             }
             .background(scheme.wash.opacity(glass.paneTint))
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Metrics.cardRadius)
-                    // R-UI-4 — the active pane glows.
-                    .strokeBorder(isActive ? Glass.accent.opacity(0.85) : scheme.hairline,
-                                  lineWidth: isActive ? 1.5 : 1)
-            )
-            .overlay(
-                CornerBrackets(radius: Metrics.cardRadius)
-                    .stroke(Glass.accent.opacity(isActive ? 1 : 0.4),
-                            style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .allowsHitTesting(false)
-            )
-            .shadow(color: isActive ? Glass.accent.opacity(0.35) : .clear, radius: 12)
+            .glassCard(isActive: isActive)
         }
     }
 }
@@ -580,9 +567,7 @@ struct TerminalBanner: View {
             Spacer()
         }
         .font(.system(size: 13, weight: .medium))
-        .padding(.horizontal, Metrics.outerPadding)
-        .frame(height: 36)
-        .background(Glass.accent.opacity(0.12))
+        .accentBar()
     }
 }
 
@@ -596,8 +581,6 @@ struct HistoryPeekBar: View {
             Button("Return to current turn", action: onReturn)
         }
         .font(.system(size: 12))
-        .padding(.horizontal, Metrics.outerPadding)
-        .frame(height: 36)
-        .background(Glass.accent.opacity(0.12))
+        .accentBar()
     }
 }

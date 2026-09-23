@@ -273,21 +273,26 @@ extension Session: DebateParticipant {
         model.submitPrompt(text, autoSend: autoSend)
     }
 
-    public func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void) {
+    public func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void,
+                                    autoHandoff: @escaping (Bool) -> Void) {
         model.onDebateSkipTurn = skip
         model.onDebateEnd = end
+        model.onDebateAutoHandoff = autoHandoff
     }
 
     public func showDebateStatus(_ badge: DebateBadge) {
+        // The model is observed: assigning an equal badge would still
+        // invalidate both windows' whole view bodies.
+        guard model.debate != badge else { return }
         model.debate = badge
     }
 
     public func endDebate() {
         guard !isEndingForDebate else { return }
+        // Set first, so `endFromPeer`'s own notification is the no-op that
+        // stops the two seats ending each other in circles.
         isEndingForDebate = true
-        model.endedByPeer(.userEnded)
-        Task { [coordinator] in await coordinator.end(.userEnded) }
-        scheduleAutoClose()
+        endFromPeer(.userEnded)
         onEnded?(id, .userEnded)
     }
 }

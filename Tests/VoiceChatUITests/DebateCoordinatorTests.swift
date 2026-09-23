@@ -15,8 +15,18 @@ final class FakeParticipant: DebateParticipant {
     var onStatementCompleted: ((String) -> Void)?
     var onPromptSent: (() -> Void)?
     var onSessionEnded: (() -> Void)?
+    /// The debate bar's Auto switch, as the coordinator wired it.
+    private var setAuto: ((Bool) -> Void)?
 
     init(_ seatKey: String) { self.seatKey = seatKey }
+
+    func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void,
+                             autoHandoff: @escaping (Bool) -> Void) {
+        setAuto = autoHandoff
+    }
+
+    /// The moderator flipping this window's Auto switch.
+    func setAutoHandoff(_ on: Bool) { setAuto?(on) }
 
     func deliver(_ text: String, autoSend: Bool) {
         pane = text
@@ -295,5 +305,88 @@ struct DebateRegistryTests {
 
         registry.coordinator("owl-42")?.endDebate()
         #expect(registry.rooms.isEmpty)
+    }
+}
+
+@MainActor
+@Suite("Automatic handover — R-DEB-10")
+struct DebateAutoHandoffTests {
+
+    private func makeRoom() -> DebateRoom {
+        DebateRoom(id: "owl-42", motion: "a motion",
+                   seats: [DebateSeat(key: "for", name: "For the motion", position: "yes"),
+                           DebateSeat(key: "against", name: "Against the motion", position: "no")])
+    }
+
+    private func seated(_ coordinator: DebateCoordinator) -> (FakeParticipant, FakeParticipant) {
+        let a = FakeParticipant("for")
+        let b = FakeParticipant("against")
+        coordinator.seat(a)
+        coordinator.seat(b)
+        return (a, b)
+    }
+
+    @Test("off by default: an arriving statement waits for Send")
+    func offByDefault() {
+        let coordinator = DebateCoordinator(room: makeRoom())
+        let (a, b) = seated(coordinator)
+        a.send()
+        a.answer("my statement")
+
+        #expect(b.sentCount == 0)
+        #expect(b.badge?.autoHandoff == false)
+        #expect(b.badge?.awaitingSend == true)
+    }
+
+    @Test("on: statements arriving at that seat are passed straight along")
+    func onSendsOnArrival() {
+        let coordinator = DebateCoordinator(room: makeRoom())
+        let (a, b) = seated(coordinator)
+        b.setAutoHandoff(true)
+        #expect(b.badge?.autoHandoff == true)
+
+        a.send()
+        a.answer("my statement")
+        #expect(b.sentCount == 1, "no need to press Send in that window")
+        #expect(b.pane.contains("my statement"))
+    }
+
+    @Test("switching it on passes along the statement already waiting")
+    func onSendsTheWaitingStatement() {
+        let coordinator = DebateCoordinator(room: makeRoom())
+        let (a, b) = seated(coordinator)
+        a.send()
+        a.answer("my statement")
+        #expect(b.sentCount == 0)
+
+        b.setAutoHandoff(true)
+        #expect(b.sentCount == 1)
+    }
+
+    @Test("it is per seat, and per seat it can be switched off again")
+    func perSeat() {
+        let coordinator = DebateCoordinator(room: makeRoom())
+        let (a, b) = seated(coordinator)
+        b.setAutoHandoff(true)
+        a.send()
+        a.answer("first")
+        #expect(b.sentCount == 1)
+        #expect(a.badge?.autoHandoff == false, "the other seat is untouched")
+
+        b.setAutoHandoff(false)
+        b.answer("second")
+        #expect(a.sentCount == 1, "a still waits for its moderator")
+        #expect(a.pane.contains("second"))
+    }
+
+    @Test("switching it on with nothing waiting sends nothing")
+    func nothingWaiting() {
+        let coordinator = DebateCoordinator(room: makeRoom())
+        let (a, _) = seated(coordinator)
+        a.send()                       // the opening prompt is gone from the pane
+        let before = a.sentCount
+
+        a.setAutoHandoff(true)
+        #expect(a.sentCount == before)
     }
 }

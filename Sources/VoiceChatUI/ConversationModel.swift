@@ -76,17 +76,10 @@ public final class ConversationModel {
     public var onDebateSkipTurn: (() -> Void)?
     public var onDebateEnd: (() -> Void)?
 
-    /// R-DEB-10 — when on, a statement arriving in this window is passed to
-    /// its debater without waiting for Send. Per window, so one side can run
-    /// itself while the other is still moderated by hand.
-    public var debateAutoHandoff = false {
-        didSet {
-            guard debateAutoHandoff, oldValue != debateAutoHandoff else { return }
-            // Switching it on with a statement already waiting sends that one
-            // too, rather than stranding it until the next handover.
-            if debate?.awaitingSend == true, canSend { send() }
-        }
-    }
+    /// R-DEB-10 — the debate bar's automatic-handover switch. The debate
+    /// itself owns the rule; this only carries the moderator's answer out to
+    /// it, and the badge carries the current setting back in.
+    public var onDebateAutoHandoff: ((Bool) -> Void)?
 
     public var hostName: String?
     /// The last path component of the host's working directory, if known — the
@@ -273,22 +266,20 @@ public final class ConversationModel {
             break
         }
 
-        if transition.effects.advancesTurn {
-            // `commitTurn` clears `receivedResponse`, so the statement is read
-            // out of the model first.
-            let statement = spokenStatement()
-            commitTurn(number: beforeTurn)
-            if let onTurnAdvanced {
-                // Deferred a tick: a relay handler drives *another* model's
-                // send() synchronously, and this transition's own effects —
-                // including the recogniser restart below — must finish first.
-                Task { @MainActor in onTurnAdvanced(statement, beforeTurn) }
-            }
-        }
+        // `commitTurn` clears `receivedResponse`, so the statement is read out
+        // of the model before the turn is committed.
+        let statement = transition.effects.advancesTurn ? spokenStatement() : nil
+        if transition.effects.advancesTurn { commitTurn(number: beforeTurn) }
 
         if case .start = transition.effects.recognizer {
             onRecognizer?(transition.effects.recognizer)
         }
+
+        // Last, and synchronously: a relay handler drives *another* model's
+        // send(), so every effect of this transition — the recogniser restart
+        // included — has to be done first. Saying that in the order rather
+        // than in a deferred task keeps it explicit and testable.
+        if let statement { onTurnAdvanced?(statement, beforeTurn) }
     }
 
     public func send() {
@@ -620,12 +611,15 @@ public final class ConversationModel {
 
     // MARK: History (§6.5)
 
+    /// R-TXT-9 — the person changed the response pane before it was read.
+    private var responseWasEdited: Bool {
+        !presentedResponse.isEmpty && plainResponse != presentedResponse
+    }
+
     /// What was actually said for this turn: the response as received, or the
-    /// person's edit of it if they changed the pane before it was read
-    /// (the test `commitTurn` uses for `responseWasEdited`).
+    /// person's edit of it.
     private func spokenStatement() -> String {
-        let edited = !presentedResponse.isEmpty && plainResponse != presentedResponse
-        return edited ? plainResponse : receivedResponse
+        responseWasEdited ? plainResponse : receivedResponse
     }
 
     /// Puts `text` in the prompt pane as if it had been typed there, and sends
@@ -640,12 +634,12 @@ public final class ConversationModel {
             .foregroundColor: NSColor.labelColor,
         ])
         promptCaretRequest = NSRange(location: (text as NSString).length, length: 0)
-        if autoSend || debateAutoHandoff { send() }
+        if autoSend { send() }
     }
 
     private func commitTurn(number: Int) {
         // R-TXT-9 — history records the response as received, not as edited.
-        let edited = !presentedResponse.isEmpty && plainResponse != presentedResponse
+        let edited = responseWasEdited
         history.append(HistoryTurn(id: number,
                                    prompt: plainPrompt.trimmed,
                                    response: receivedResponse,

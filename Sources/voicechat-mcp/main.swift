@@ -37,9 +37,7 @@ await server.withMethodHandler(CallTool.self) { params in
     let message: String? = if case .string(let s)? = params.arguments?["message"] { s } else { nil }
     let continuation: String? = if case .string(let s)? = params.arguments?["continuation"] { s } else { nil }
     let model: String? = if case .string(let s)? = params.arguments?["model"] { s } else { nil }
-    let debateID: String? = if case .string(let s)? = params.arguments?["debate_id"] { s } else { nil }
-    let side: String? = if case .string(let s)? = params.arguments?["side"] { s } else { nil }
-    let debate = debateID.map { DebateJoin(roomID: $0, seat: side ?? "") }
+    let debate = ConverseTool.debateJoin(from: params.arguments)
 
     let ticker = ConverseTool.startProgressTicker(
         server: server,

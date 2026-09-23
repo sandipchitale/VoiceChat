@@ -108,6 +108,15 @@ public enum ConverseTool {
         )
     }
 
+    /// The debate seat a call is claiming, read from the two optional
+    /// arguments above. Lives here, next to the schema that declares them, so
+    /// the transports cannot disagree about their names.
+    public static func debateJoin(from arguments: [String: Value]?) -> DebateJoin? {
+        guard case .string(let id)? = arguments?["debate_id"], !id.isEmpty else { return nil }
+        let seat: String = if case .string(let s)? = arguments?["side"] { s } else { "" }
+        return DebateJoin(roomID: id, seat: seat)
+    }
+
     public static func structuredContent(_ result: ConverseResult) -> Value {
         var fields: [String: Value] = ["status": .string(result.status.rawValue)]
         if let m = result.userMessage { fields["user_message"] = .string(m) }

@@ -34,14 +34,18 @@ public enum DebateVoices {
     /// the picker.
     private static let noveltyPrefix = "com.apple.speech.synthesis.voice."
 
-    /// The speaking voices installed for the interface language.
-    public static func installed() -> [(name: String, identifier: String)] {
+    /// The speaking voices installed for the interface language. Enumerating
+    /// them walks the whole system voice table, and the answer does not change
+    /// while the app runs, so it is worked out once.
+    public static func installed() -> [(name: String, identifier: String)] { cachedVoices }
+
+    private static let cachedVoices: [(name: String, identifier: String)] = {
         let language = Locale.current.language.languageCode?.identifier ?? "en"
         return AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language.hasPrefix(language) && !$0.identifier.hasPrefix(noveltyPrefix) }
             .map { (name: $0.name, identifier: $0.identifier) }
             .sorted { $0.name < $1.name }
-    }
+    }()
 
     /// A delivery per seat, in seat order. A seat speaks in the voice the
     /// person chose for it, or in the Mac's standard voice; either way the
@@ -51,14 +55,20 @@ public enum DebateVoices {
     public static func deliveries(for seats: [DebateSeat],
                                   available: [(name: String, identifier: String)]) -> [Delivery] {
         seats.enumerated().map { index, seat in
-            // Nil means the system voice — never a voice picked on the
-            // person's behalf.
-            var delivery = Delivery(voiceIdentifier: resolve(seat.voice, in: available))
-            let step = Float(index) - Float(seats.count - 1) / 2
-            delivery.pitch = 1.0 + 0.12 * step
-            delivery.rate = AVSpeechUtteranceDefaultSpeechRate * (1.0 + 0.06 * step)
-            return delivery
+            delivery(forSeat: index, of: seats.count, voice: seat.voice, available: available)
         }
+    }
+
+    /// One seat's delivery. Pitch and rate are a pure function of where the
+    /// seat sits, so a caller that wants one seat need not build them all.
+    public static func delivery(forSeat index: Int, of seatCount: Int, voice: String?,
+                                available: [(name: String, identifier: String)] = installed())
+        -> Delivery {
+        // Nil means the system voice — never a voice picked on the person's behalf.
+        let step = Float(index) - Float(seatCount - 1) / 2
+        return Delivery(voiceIdentifier: resolve(voice, in: available),
+                        pitch: 1.0 + 0.12 * step,
+                        rate: AVSpeechUtteranceDefaultSpeechRate * (1.0 + 0.06 * step))
     }
 
     /// A seat's requested voice: an identifier, or a name like "Samantha".
