@@ -4,6 +4,14 @@ import Foundation
 /// Reads a reply through Talking Head's `th` command instead of the built-in
 /// synthesiser: the text goes in on standard input, `th` shows the animated
 /// face, speaks it, and exits. The reading is over when the process is.
+/// Talking Head's two characters, as `th -v` names them.
+public enum TalkingHeadVoice: String, CaseIterable, Sendable {
+    case male, female
+
+    var title: String { self == .male ? "Male (Daniel)" : "Female (Samantha)" }
+    var symbol: String { self == .male ? "figure.stand" : "figure.stand.dress" }
+}
+
 @MainActor
 final class TalkingHeadSpeaker {
 
@@ -57,7 +65,7 @@ final class TalkingHeadSpeaker {
         process?.terminate()
     }
 
-    func speak(_ text: String) {
+    func speak(_ text: String, voice: TalkingHeadVoice) {
         stop()
         stopping = false
 
@@ -70,7 +78,7 @@ final class TalkingHeadSpeaker {
         process.executableURL = url
         // Like the conversation window, the face must not hide behind other
         // apps' windows while it is the thing being listened to.
-        process.arguments = ["--always-on-top"]
+        process.arguments = ["--always-on-top", "-v", voice.rawValue]
         let input = Pipe()
         process.standardInput = input
         process.standardOutput = FileHandle.nullDevice

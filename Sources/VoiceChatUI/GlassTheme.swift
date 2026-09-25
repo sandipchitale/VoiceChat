@@ -98,6 +98,7 @@ final class GlassSettings {
     private static let alwaysOnTopKey = "VoiceChatAlwaysOnTop"
     private static let speechMutedKey = "VoiceChatSpeechMuted"
     private static let useTalkingHeadKey = "VoiceChatUseTalkingHead"
+    private static let talkingHeadVoiceKey = "VoiceChatTalkingHeadVoice"
     private static let paneLayoutKey = "VoiceChatPaneLayout"
     private static let sideBySideSplitKey = "VoiceChatSideBySideSplit"
     private static let stackedSplitKey = "VoiceChatStackedSplit"
@@ -149,6 +150,11 @@ final class GlassSettings {
         didSet { UserDefaults.standard.set(useTalkingHead, forKey: Self.useTalkingHeadKey) }
     }
 
+    /// Which Talking Head character reads, passed to `th` as `-v`.
+    var talkingHeadVoice: TalkingHeadVoice {
+        didSet { UserDefaults.standard.set(talkingHeadVoice.rawValue, forKey: Self.talkingHeadVoiceKey) }
+    }
+
     /// 0 is as see-through as the glass gets, 1 is nearly solid.
     var opacity: Double {
         didSet { UserDefaults.standard.set(opacity, forKey: Self.key) }
@@ -166,6 +172,8 @@ final class GlassSettings {
         alwaysOnTop = UserDefaults.standard.object(forKey: Self.alwaysOnTopKey) as? Bool ?? true
         speechMuted = UserDefaults.standard.bool(forKey: Self.speechMutedKey)
         useTalkingHead = UserDefaults.standard.bool(forKey: Self.useTalkingHeadKey)
+        talkingHeadVoice = UserDefaults.standard.string(forKey: Self.talkingHeadVoiceKey)
+            .flatMap(TalkingHeadVoice.init) ?? .male
         paneLayout = UserDefaults.standard.string(forKey: Self.paneLayoutKey).flatMap(PaneLayout.init) ?? .sideBySide
         sideBySideSplit = Self.storedSplit(Self.sideBySideSplitKey)
         stackedSplit = Self.storedSplit(Self.stackedSplitKey)
@@ -453,6 +461,38 @@ struct TalkingHeadButton: View {
         .accessibilityLabel("Speak with Talking Head")
         .accessibilityValue(isOn ? "On" : "Off")
         .accessibilityAddTraits(.isToggle)
+    }
+}
+
+/// Male or female Talking Head, styled like the theme picker. Dimmed while
+/// Talking Head is off, but still settable, so the voice can be chosen first.
+struct TalkingHeadVoicePicker: View {
+    @Binding var selection: TalkingHeadVoice
+    let isActive: Bool
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(TalkingHeadVoice.allCases, id: \.self) { voice in
+                let selected = voice == selection
+                Button { selection = voice } label: {
+                    Image(systemName: voice.symbol)
+                        .font(.system(size: 11))
+                        .foregroundStyle(selected ? AnyShapeStyle(scheme.accentText) : AnyShapeStyle(.secondary))
+                        .frame(width: 26, height: 22)
+                        .background(Capsule().fill(selected ? Glass.accent.opacity(0.22) : .clear))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help(selected ? "Talking Head voice: \(voice.title) (current)" : "Talking Head voice: \(voice.title)")
+                .accessibilityLabel("\(voice.title) Talking Head voice")
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(2)
+        .background(Capsule().fill(scheme.ink.opacity(0.06)))
+        .overlay(Capsule().strokeBorder(scheme.hairline))
+        .opacity(isActive ? 1 : 0.5)
     }
 }
 

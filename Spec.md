@@ -1421,7 +1421,8 @@ window and remembered.
 
 - The text sent is the spoken text of §9.2 (or of the selection, per `R-TTS-15`), piped to `th` on
   standard input. `th` is run with `--always-on-top`, so the face isn't hidden behind other
-  windows.
+  windows, and with `-v male` or `-v female` from a picker next to the toggle (default male). The
+  picker is shared and remembered like the toggle.
 - The reading lasts as long as the `th` process does. Its exit is the natural finish that
   `R-TTS-11` and `R-TTS-13` act on. **Stop** terminates the process. There is no sentence
   highlight, because `th` reports no progress.

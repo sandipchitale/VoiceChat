@@ -48,6 +48,8 @@ public final class SpeechOutputController: NSObject {
     /// Read replies through Talking Head's `th` instead of the synthesiser,
     /// when it is installed. Takes effect from the next reading.
     public var useTalkingHead = false
+    /// The Talking Head character. Takes effect from the next reading.
+    public var talkingHeadVoice = TalkingHeadVoice.male
 
     private lazy var talkingHead: TalkingHeadSpeaker = {
         let speaker = TalkingHeadSpeaker()
@@ -118,7 +120,8 @@ public final class SpeechOutputController: NSObject {
             // `th` reports no progress, so there is no sentence highlight.
             isSpeaking = true
             onHighlight?(nil)
-            talkingHead.speak(speakable.map(\.element.text).joined(separator: "\n"))
+            talkingHead.speak(speakable.map(\.element.text).joined(separator: "\n"),
+                              voice: talkingHeadVoice)
             return
         }
 

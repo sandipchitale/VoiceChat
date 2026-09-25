@@ -80,7 +80,7 @@ The design's guiding correctness requirement — stated once and treated as load
 
 - **Left pane — Talk.** Where your speech is transcribed live, and where typed/pasted text can be mixed in freely (useful for file paths, identifiers, code snippets — anything dictation handles badly).
 - **Right pane — Listen.** Where the model's replies appear and are read aloud via `AVSpeechSynthesizer`.
-- **Talking Head.** If [Talking Head](https://github.com/sandipchitale/TalkingHead)'s `th` command is installed, a 👤 toggle appears next to Mute. When it's on, replies are read by Talking Head's animated face instead, and the conversation waits until the Talking Head window finishes before moving on. Stop ends it, and so does Mute, because muted means silent. See [Talking Head (optional)](#talking-head-optional).
+- **Talking Head.** If [Talking Head](https://github.com/sandipchitale/TalkingHead)'s `th` command is installed, a 👤 toggle appears next to Mute, with a male/female picker beside it. When it's on, replies are read by Talking Head's animated face instead, and the conversation waits until the Talking Head window finishes before moving on. Stop ends it, and so does Mute, because muted means silent. See [Talking Head (optional)](#talking-head-optional).
 - **Dictation | Command** — a two-position segmented control, plus a separate microphone on/off toggle, switching between free dictation and the structural voice-command grammar.
 - The microphone is fully torn down whenever audio is playing, so the app's own speech output is never transcribed as your next prompt. When playback stops or finishes, voice control returns to Command Mode.
 
@@ -239,9 +239,10 @@ lip-syncs as it speaks.
   `/Applications/TalkingHead.app`. It only uses a `th` that actually points into `TalkingHead.app`.
   When `th` isn't found, nothing changes and no button appears.
 - **Turning it on.** A person icon appears next to the speaker (mute) button under the reply pane.
-  Click it to switch every conversation window to Talking Head. The setting is remembered, and a
-  change applies from the next reply.
-- **What happens.** Each reply is sent to `th --always-on-top`, with Markdown removed and code
+  Click it to switch every conversation window to Talking Head. Next to it, a two-way picker chooses
+  the male (Daniel) or female (Samantha) character. Both settings are remembered, and a change
+  applies from the next reply.
+- **What happens.** Each reply is sent to `th --always-on-top -v male|female`, with Markdown removed and code
   blocks handled the same way as for the built-in voice. If you've selected part of a reply, only
   that part is sent. The Talking Head window opens, stays above other windows, and reads the reply.
   The conversation waits until that window finishes and closes before moving to the next turn.

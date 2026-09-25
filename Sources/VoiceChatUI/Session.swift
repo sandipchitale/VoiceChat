@@ -70,10 +70,12 @@ public final class Session {
     private func observeTalkingHead() {
         withObservationTracking {
             _ = GlassSettings.shared.useTalkingHead
+            _ = GlassSettings.shared.talkingHeadVoice
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeTalkingHead() }
         }
         speech.useTalkingHead = GlassSettings.shared.useTalkingHead
+        speech.talkingHeadVoice = GlassSettings.shared.talkingHeadVoice
     }
 
     /// The project a working directory names, or `nil` for the filesystem root.
