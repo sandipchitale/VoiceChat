@@ -1333,7 +1333,8 @@ Settings…** button that deep-links to the Privacy pane.
 ### 9.1 Synthesis
 
 `R-TTS-1` Playback **MUST** use `AVSpeechSynthesizer` with a locally installed voice. No network
-voice, no third-party engine.
+voice, no third-party engine. The one exception is Talking Head, which the person opts into
+(`R-TTS-16`).
 
 `R-TTS-2` The response **MUST** be split into sentence-level utterances
 (`String.enumerateSubstrings(in:options:[.bySentences, .localized])`) and enqueued in order, rather
@@ -1408,6 +1409,26 @@ Restating the v1.0 rules as they appear in [§5.2](#52-transition-table):
 `R-TTS-15` **Play** in `Responding.Manual` starts from the beginning of the response, unless there
 is a non-empty selection, in which case it reads the selection only. Resuming mid-response is not
 offered; it is ambiguous after an edit, and restarting is cheap.
+
+### 9.5 Talking Head
+
+`R-TTS-16` When Talking Head's `th` command is installed, the response footer **MUST** offer a toggle,
+next to Mute, that reads replies through `th` instead of `AVSpeechSynthesizer`. `th` is looked up
+at `~/.local/bin`, `/usr/local/bin`, `/opt/homebrew/bin` and inside
+`/Applications/TalkingHead.app`, and a candidate counts only if it resolves into
+`TalkingHead.app`. When `th` isn't found, the toggle isn't shown. The setting is shared by every
+window and remembered.
+
+- The text sent is the spoken text of §9.2 (or of the selection, per `R-TTS-15`), piped to `th` on
+  standard input. `th` is run with `--always-on-top`, so the face isn't hidden behind other
+  windows.
+- The reading lasts as long as the `th` process does. Its exit is the natural finish that
+  `R-TTS-11` and `R-TTS-13` act on. **Stop** terminates the process. There is no sentence
+  highlight, because `th` reports no progress.
+- Mute means silence. While muted, `th` isn't launched, and the built-in synthesiser reads silently
+  as usual. Muting while `th` is speaking terminates it, and the reading counts as finished.
+- Toggling applies from the next reading. Closing the window or quitting the app terminates a
+  running `th`.
 
 ---
 

@@ -32,8 +32,36 @@ public final class SpeechOutputController: NSObject {
     /// queued, so changing this mid-reading re-issues the queue from the
     /// sentence being read: that sentence starts over, silently or audibly.
     public var isMuted = false {
-        didSet { if isMuted != oldValue { reissueQueue() } }
+        didSet {
+            guard isMuted != oldValue else { return }
+            // Talking Head cannot be silenced mid-reading, and muting means
+            // silence, so it is ended — as a finish, so the turn moves on.
+            if isMuted, talkingHead.isRunning {
+                talkingHeadMuted = true
+                talkingHead.stop()
+                return
+            }
+            reissueQueue()
+        }
     }
+
+    /// Read replies through Talking Head's `th` instead of the synthesiser,
+    /// when it is installed. Takes effect from the next reading.
+    public var useTalkingHead = false
+
+    private lazy var talkingHead: TalkingHeadSpeaker = {
+        let speaker = TalkingHeadSpeaker()
+        speaker.onFinished = { [weak self] in self?.talkingHeadEnded(cancelled: false) }
+        speaker.onCancelled = { [weak self] in
+            guard let self else { return }
+            // Ended by mute: a finish. Ended by stop(): a cancellation.
+            let muted = self.talkingHeadMuted
+            self.talkingHeadMuted = false
+            self.talkingHeadEnded(cancelled: !muted)
+        }
+        return speaker
+    }()
+    private var talkingHeadMuted = false
 
     /// The volume utterances are queued with.
     public var effectiveVolume: Float { isMuted ? 0 : volume }
@@ -86,7 +114,27 @@ public final class SpeechOutputController: NSObject {
             return
         }
 
+        if useTalkingHead, !isMuted, TalkingHeadSpeaker.isInstalled {
+            // `th` reports no progress, so there is no sentence highlight.
+            isSpeaking = true
+            onHighlight?(nil)
+            talkingHead.speak(speakable.map(\.element.text).joined(separator: "\n"))
+            return
+        }
+
         enqueue(speakable)
+    }
+
+    private func talkingHeadEnded(cancelled: Bool) {
+        // A late exit from a `th` that a fresh Play replaced with the
+        // synthesiser must not touch that reading.
+        guard !synthesizer.isSpeaking else {
+            if cancelled { onCancelled?() }
+            return
+        }
+        isSpeaking = false
+        onHighlight?(nil)
+        if cancelled { onCancelled?() } else { onFinished?() }
     }
 
     private func enqueue(_ speakable: [(offset: Int, element: SpeechSegment)]) {
@@ -119,6 +167,14 @@ public final class SpeechOutputController: NSObject {
     }
 
     public func stop() {
+        if talkingHead.isRunning {
+            talkingHeadMuted = false
+            talkingHead.stop()
+            isSpeaking = false
+            currentSegment = nil
+            onHighlight?(nil)
+            return
+        }
         guard isSpeaking || synthesizer.isSpeaking else {
             onHighlight?(nil)
             return

@@ -285,6 +285,9 @@ public struct ConversationView: View {
     private var responseFooter: some View {
         HStack(spacing: 12) {
             MuteButton(isMuted: $glassSettings.speechMuted, isSpeaking: model.machine.isSpeaking)
+            if TalkingHeadSpeaker.isInstalled {
+                TalkingHeadButton(isOn: $glassSettings.useTalkingHead)
+            }
 
             Text(model.responseStatusText)
                 .font(Metrics.captionFont)

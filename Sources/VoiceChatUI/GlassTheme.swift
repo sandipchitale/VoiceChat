@@ -97,6 +97,7 @@ final class GlassSettings {
     private static let themeKey = "VoiceChatTheme"
     private static let alwaysOnTopKey = "VoiceChatAlwaysOnTop"
     private static let speechMutedKey = "VoiceChatSpeechMuted"
+    private static let useTalkingHeadKey = "VoiceChatUseTalkingHead"
     private static let paneLayoutKey = "VoiceChatPaneLayout"
     private static let sideBySideSplitKey = "VoiceChatSideBySideSplit"
     private static let stackedSplitKey = "VoiceChatStackedSplit"
@@ -142,6 +143,12 @@ final class GlassSettings {
         didSet { UserDefaults.standard.set(speechMuted, forKey: Self.speechMutedKey) }
     }
 
+    /// Whether replies are read by Talking Head's `th` rather than the built-in
+    /// voice. Only offered when `th` is installed.
+    var useTalkingHead: Bool {
+        didSet { UserDefaults.standard.set(useTalkingHead, forKey: Self.useTalkingHeadKey) }
+    }
+
     /// 0 is as see-through as the glass gets, 1 is nearly solid.
     var opacity: Double {
         didSet { UserDefaults.standard.set(opacity, forKey: Self.key) }
@@ -158,6 +165,7 @@ final class GlassSettings {
         theme = UserDefaults.standard.string(forKey: Self.themeKey).flatMap(GlassTheme.init) ?? .system
         alwaysOnTop = UserDefaults.standard.object(forKey: Self.alwaysOnTopKey) as? Bool ?? true
         speechMuted = UserDefaults.standard.bool(forKey: Self.speechMutedKey)
+        useTalkingHead = UserDefaults.standard.bool(forKey: Self.useTalkingHeadKey)
         paneLayout = UserDefaults.standard.string(forKey: Self.paneLayoutKey).flatMap(PaneLayout.init) ?? .sideBySide
         sideBySideSplit = Self.storedSplit(Self.sideBySideSplitKey)
         stackedSplit = Self.storedSplit(Self.stackedSplitKey)
@@ -419,6 +427,31 @@ struct MuteButton: View {
                       : "Click to read replies silently (⇧⌘M)")
         .accessibilityLabel("Mute speech")
         .accessibilityValue(isMuted ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
+    }
+}
+
+/// Reads replies with Talking Head's animated face instead of the built-in
+/// voice. Shown only when its `th` command is installed.
+struct TalkingHeadButton: View {
+    @Binding var isOn: Bool
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button { isOn.toggle() } label: {
+            Image(systemName: isOn ? "person.wave.2.fill" : "person.wave.2")
+                .font(.system(size: 11))
+                .foregroundStyle(isOn ? AnyShapeStyle(scheme.accentText) : AnyShapeStyle(.secondary))
+                .frame(width: 30, height: 22)
+                .background(Capsule().fill(isOn ? scheme.accentText.opacity(0.14) : scheme.ink.opacity(0.06)))
+                .overlay(Capsule().strokeBorder(isOn ? scheme.accentText.opacity(0.45) : scheme.hairline))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(isOn ? "Replies are read by Talking Head — click to use the built-in voice (from the next reply)"
+                   : "Click to read replies with Talking Head (from the next reply)")
+        .accessibilityLabel("Speak with Talking Head")
+        .accessibilityValue(isOn ? "On" : "Off")
         .accessibilityAddTraits(.isToggle)
     }
 }

@@ -51,6 +51,7 @@ public final class Session {
 
         wire()
         observeMute()
+        observeTalkingHead()
         model.open()
     }
 
@@ -63,6 +64,16 @@ public final class Session {
             Task { @MainActor in self?.observeMute() }
         }
         speech.isMuted = GlassSettings.shared.speechMuted
+    }
+
+    /// Like mute, the Talking Head toggle is shared by every window.
+    private func observeTalkingHead() {
+        withObservationTracking {
+            _ = GlassSettings.shared.useTalkingHead
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeTalkingHead() }
+        }
+        speech.useTalkingHead = GlassSettings.shared.useTalkingHead
     }
 
     /// The project a working directory names, or `nil` for the filesystem root.
@@ -175,6 +186,9 @@ public final class Session {
             self.notifyDebateEnded()
         }
         windowController.onWindowDidClose = { [weak self] in
+            // A Talking Head window outliving its conversation cannot be
+            // stopped from anywhere.
+            self?.speech.stop()
             self?.onDisposed?(id)
         }
     }

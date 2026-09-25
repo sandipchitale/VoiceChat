@@ -80,6 +80,7 @@ The design's guiding correctness requirement — stated once and treated as load
 
 - **Left pane — Talk.** Where your speech is transcribed live, and where typed/pasted text can be mixed in freely (useful for file paths, identifiers, code snippets — anything dictation handles badly).
 - **Right pane — Listen.** Where the model's replies appear and are read aloud via `AVSpeechSynthesizer`.
+- **Talking Head.** If [Talking Head](https://github.com/sandipchitale/TalkingHead)'s `th` command is installed, a 👤 toggle appears next to Mute. When it's on, replies are read by Talking Head's animated face instead, and the conversation waits until the Talking Head window finishes before moving on. Stop ends it, and so does Mute, because muted means silent. See [Talking Head (optional)](#talking-head-optional).
 - **Dictation | Command** — a two-position segmented control, plus a separate microphone on/off toggle, switching between free dictation and the structural voice-command grammar.
 - The microphone is fully torn down whenever audio is playing, so the app's own speech output is never transcribed as your next prompt. When playback stops or finishes, voice control returns to Command Mode.
 
@@ -226,6 +227,30 @@ models — Claude Code against Gemini, say — with you moderating.
 
 Muting (the speaker button in either window) silences both sides without changing anything else: the
 sentence highlight and the pace stay as they were, so you can follow the argument by eye.
+
+## Talking Head (optional)
+
+If [Talking Head](https://github.com/sandipchitale/TalkingHead) is installed, VoiceChat can have it
+read replies aloud instead of using its own voice. Talking Head is a macOS app whose animated face
+lip-syncs as it speaks.
+
+- **Setup.** Install Talking Head and link its `th` command, as its README describes. VoiceChat looks
+  for `th` in `~/.local/bin`, `/usr/local/bin`, `/opt/homebrew/bin` and inside
+  `/Applications/TalkingHead.app`. It only uses a `th` that actually points into `TalkingHead.app`.
+  When `th` isn't found, nothing changes and no button appears.
+- **Turning it on.** A person icon appears next to the speaker (mute) button under the reply pane.
+  Click it to switch every conversation window to Talking Head. The setting is remembered, and a
+  change applies from the next reply.
+- **What happens.** Each reply is sent to `th --always-on-top`, with Markdown removed and code
+  blocks handled the same way as for the built-in voice. If you've selected part of a reply, only
+  that part is sent. The Talking Head window opens, stays above other windows, and reads the reply.
+  The conversation waits until that window finishes and closes before moving to the next turn.
+- **Stop and Mute.** **Stop** closes the Talking Head window straight away. So does **Mute**,
+  because muted means silent. While muted, Talking Head isn't started at all.
+- **What you give up.** There's no sentence highlighting in the reply pane, because Talking Head
+  doesn't report its progress. Instead, its own speech bubble highlights each word as it's spoken.
+
+Talking Head also speaks on-device, using macOS's built-in voices.
 
 ## Testing without an MCP host
 
