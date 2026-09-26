@@ -246,6 +246,10 @@ lip-syncs as it speaks.
   blocks handled the same way as for the built-in voice. If you've selected part of a reply, only
   that part is sent. The Talking Head window opens, stays above other windows, and reads the reply.
   The conversation waits until that window finishes and closes before moving to the next turn.
+- **In a debate.** The two sides always get opposite characters. The first ("for") seat starts with
+  the character your picker is set to, and the other side gets the other one. Changing the picker in
+  either debate window flips the other window to match. This choice belongs to that debate only and
+  doesn't change the picker in ordinary conversations.
 - **Stop and Mute.** **Stop** closes the Talking Head window straight away. So does **Mute**,
   because muted means silent. While muted, Talking Head isn't started at all.
 - **What you give up.** There's no sentence highlighting in the reply pane, because Talking Head

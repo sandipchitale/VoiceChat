@@ -27,7 +27,10 @@ public final class DebateRegistry {
 
     @discardableResult
     public func create(_ room: DebateRoom) -> DebateCoordinator {
-        let coordinator = DebateCoordinator(room: room)
+        // The first seat starts from the voice ordinary conversations use,
+        // and the other side takes the opposite.
+        let coordinator = DebateCoordinator(room: room,
+                                            talkingHeadVoice: GlassSettings.shared.talkingHeadVoice)
         // Synchronous on purpose: the moment a debate ends its id must stop
         // working, so a client cannot take a seat in a room that is closing.
         coordinator.onFinished = { [weak self] id in

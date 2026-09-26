@@ -469,6 +469,7 @@ struct TalkingHeadButton: View {
 struct TalkingHeadVoicePicker: View {
     @Binding var selection: TalkingHeadVoice
     let isActive: Bool
+    var isDebateSeat = false
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -484,7 +485,7 @@ struct TalkingHeadVoicePicker: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .help(selected ? "Talking Head voice: \(voice.title) (current)" : "Talking Head voice: \(voice.title)")
+                .help(help(for: voice, selected: selected))
                 .accessibilityLabel("\(voice.title) Talking Head voice")
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
@@ -493,6 +494,13 @@ struct TalkingHeadVoicePicker: View {
         .background(Capsule().fill(scheme.ink.opacity(0.06)))
         .overlay(Capsule().strokeBorder(scheme.hairline))
         .opacity(isActive ? 1 : 0.5)
+    }
+
+    private func help(for voice: TalkingHeadVoice, selected: Bool) -> String {
+        var text = "Talking Head voice: \(voice.title)"
+        if selected { text += " (current)" }
+        if isDebateSeat { text += " — this seat only; the other side takes the opposite" }
+        return text
     }
 }
 

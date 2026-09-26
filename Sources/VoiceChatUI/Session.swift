@@ -66,16 +66,18 @@ public final class Session {
         speech.isMuted = GlassSettings.shared.speechMuted
     }
 
-    /// Like mute, the Talking Head toggle is shared by every window.
+    /// Like mute, the Talking Head toggle is shared by every window. The
+    /// voice is too, except in a debate seat, which has its own.
     private func observeTalkingHead() {
         withObservationTracking {
             _ = GlassSettings.shared.useTalkingHead
             _ = GlassSettings.shared.talkingHeadVoice
+            _ = model.seatTalkingHeadVoice
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeTalkingHead() }
         }
         speech.useTalkingHead = GlassSettings.shared.useTalkingHead
-        speech.talkingHeadVoice = GlassSettings.shared.talkingHeadVoice
+        speech.talkingHeadVoice = model.seatTalkingHeadVoice ?? GlassSettings.shared.talkingHeadVoice
     }
 
     /// The project a working directory names, or `nil` for the filesystem root.
@@ -294,6 +296,15 @@ extension Session: DebateParticipant {
         model.onDebateSkipTurn = skip
         model.onDebateEnd = end
         model.onDebateAutoHandoff = autoHandoff
+    }
+
+    public func setTalkingHeadVoice(_ voice: TalkingHeadVoice) {
+        guard model.seatTalkingHeadVoice != voice else { return }
+        model.seatTalkingHeadVoice = voice
+    }
+
+    public func onTalkingHeadVoiceChosen(_ chosen: @escaping (TalkingHeadVoice) -> Void) {
+        model.onSeatTalkingHeadVoiceChosen = chosen
     }
 
     public func showDebateStatus(_ badge: DebateBadge) {

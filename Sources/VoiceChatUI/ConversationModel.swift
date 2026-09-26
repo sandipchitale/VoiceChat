@@ -81,6 +81,13 @@ public final class ConversationModel {
     /// it, and the badge carries the current setting back in.
     public var onDebateAutoHandoff: ((Bool) -> Void)?
 
+    /// A debate seat's own Talking Head character, set by the debate. Nil
+    /// outside a debate, where the shared setting applies.
+    public var seatTalkingHeadVoice: TalkingHeadVoice?
+    /// The seat's voice picker was used. The debate decides, and sets
+    /// `seatTalkingHeadVoice` on both seats.
+    public var onSeatTalkingHeadVoiceChosen: ((TalkingHeadVoice) -> Void)?
+
     public var hostName: String?
     /// The last path component of the host's working directory, if known — the
     /// "project" this conversation belongs to.

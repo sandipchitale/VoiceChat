@@ -282,13 +282,24 @@ public struct ConversationView: View {
         )
     }
 
+    /// A debate seat's picker drives the debate, which keeps the two sides
+    /// opposite. Anywhere else it is the shared setting.
+    private var talkingHeadVoiceBinding: Binding<TalkingHeadVoice> {
+        if let seatVoice = model.seatTalkingHeadVoice {
+            return Binding(get: { seatVoice },
+                           set: { model.onSeatTalkingHeadVoiceChosen?($0) })
+        }
+        return $glassSettings.talkingHeadVoice
+    }
+
     private var responseFooter: some View {
         HStack(spacing: 12) {
             MuteButton(isMuted: $glassSettings.speechMuted, isSpeaking: model.machine.isSpeaking)
             if TalkingHeadSpeaker.isInstalled {
                 TalkingHeadButton(isOn: $glassSettings.useTalkingHead)
-                TalkingHeadVoicePicker(selection: $glassSettings.talkingHeadVoice,
-                                       isActive: glassSettings.useTalkingHead)
+                TalkingHeadVoicePicker(selection: talkingHeadVoiceBinding,
+                                       isActive: glassSettings.useTalkingHead,
+                                       isDebateSeat: model.seatTalkingHeadVoice != nil)
             }
 
             Text(model.responseStatusText)

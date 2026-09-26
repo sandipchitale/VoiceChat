@@ -1423,6 +1423,10 @@ window and remembered.
   standard input. `th` is run with `--always-on-top`, so the face isn't hidden behind other
   windows, and with `-v male` or `-v female` from a picker next to the toggle (default male). The
   picker is shared and remembered like the toggle.
+- In a debate, each seat has its own character, and the seats alternate. The first seat starts
+  with the shared picker's choice, and the next seat takes the opposite. Choosing a character in
+  one seat's picker sets the other seat to the opposite. A debate's choice is held by its
+  `DebateCoordinator` and never written back to the shared setting.
 - The reading lasts as long as the `th` process does. Its exit is the natural finish that
   `R-TTS-11` and `R-TTS-13` act on. **Stop** terminates the process. There is no sentence
   highlight, because `th` reports no progress.

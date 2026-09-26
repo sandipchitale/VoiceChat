@@ -17,6 +17,9 @@ final class FakeParticipant: DebateParticipant {
     var onSessionEnded: (() -> Void)?
     /// The debate bar's Auto switch, as the coordinator wired it.
     private var setAuto: ((Bool) -> Void)?
+    /// This seat's Talking Head character, as the coordinator set it.
+    var talkingHeadVoice: TalkingHeadVoice?
+    private var chooseVoice: ((TalkingHeadVoice) -> Void)?
 
     init(_ seatKey: String) { self.seatKey = seatKey }
 
@@ -24,6 +27,12 @@ final class FakeParticipant: DebateParticipant {
                              autoHandoff: @escaping (Bool) -> Void) {
         setAuto = autoHandoff
     }
+
+    func setTalkingHeadVoice(_ voice: TalkingHeadVoice) { talkingHeadVoice = voice }
+    func onTalkingHeadVoiceChosen(_ chosen: @escaping (TalkingHeadVoice) -> Void) { chooseVoice = chosen }
+
+    /// The moderator using this window's Talking Head voice picker.
+    func pickTalkingHeadVoice(_ voice: TalkingHeadVoice) { chooseVoice?(voice) }
 
     /// The moderator flipping this window's Auto switch.
     func setAutoHandoff(_ on: Bool) { setAuto?(on) }
@@ -67,6 +76,28 @@ struct DebateCoordinatorTests {
         coordinator.seat(a)
         coordinator.seat(b)
         return (a, b)
+    }
+
+    @Test("the seats get opposite Talking Head voices, starting from the one given")
+    func talkingHeadVoicesAlternate() {
+        let (a, b) = seated(DebateCoordinator(room: makeRoom(), talkingHeadVoice: .female))
+        #expect(a.talkingHeadVoice == .female)
+        #expect(b.talkingHeadVoice == .male)
+    }
+
+    @Test("picking a Talking Head voice in one seat flips the other")
+    func talkingHeadVoicePickKeepsSidesOpposite() {
+        let coordinator = DebateCoordinator(room: makeRoom())
+        let (a, b) = seated(coordinator)
+        #expect(a.talkingHeadVoice == .male && b.talkingHeadVoice == .female)
+
+        b.pickTalkingHeadVoice(.male)
+        #expect(b.talkingHeadVoice == .male)
+        #expect(a.talkingHeadVoice == .female)
+
+        a.pickTalkingHeadVoice(.male)
+        #expect(a.talkingHeadVoice == .male)
+        #expect(b.talkingHeadVoice == .female)
     }
 
     @Test("the opening prompt waits in the first seat's pane until Send")

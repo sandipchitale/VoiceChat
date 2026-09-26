@@ -56,11 +56,19 @@ public protocol DebateParticipant: AnyObject {
     /// Hands the seat the moderator's controls for its debate bar.
     func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void,
                              autoHandoff: @escaping (Bool) -> Void)
+
+    /// The Talking Head character this seat reads with. Seats alternate, so
+    /// the two sides never share one.
+    func setTalkingHeadVoice(_ voice: TalkingHeadVoice)
+    /// Wires this seat's voice picker: the moderator chose `voice` here.
+    func onTalkingHeadVoiceChosen(_ chosen: @escaping (TalkingHeadVoice) -> Void)
 }
 
 public extension DebateParticipant {
     func setModeratorActions(skip: @escaping () -> Void, end: @escaping () -> Void,
                              autoHandoff: @escaping (Bool) -> Void) {}
+    func setTalkingHeadVoice(_ voice: TalkingHeadVoice) {}
+    func onTalkingHeadVoiceChosen(_ chosen: @escaping (TalkingHeadVoice) -> Void) {}
 }
 
 @MainActor
@@ -72,13 +80,18 @@ public final class DebateCoordinator {
     /// Ending one seat ends the other, which reports *its* ending back: without
     /// this the two would chase each other round.
     private var isTearingDown = false
+    /// The first seat's Talking Head character. Every other seat alternates
+    /// from it. Kept here, not in the shared settings, so a debate never
+    /// changes the voice ordinary conversations use.
+    private var firstSeatVoice: TalkingHeadVoice
 
     /// The debate finished and the registry should forget it.
     public var onFinished: ((String) -> Void)?
 
-    public init(room: DebateRoom) {
+    public init(room: DebateRoom, talkingHeadVoice: TalkingHeadVoice = .male) {
         self.room = room
         self.machine = DebateMachine(room: room)
+        self.firstSeatVoice = talkingHeadVoice
     }
 
     public var filledSeats: Int { machine.filledSeats }
@@ -109,6 +122,10 @@ public final class DebateCoordinator {
             skip: { [weak self] in self?.skipTurn() },
             end: { [weak self] in self?.endDebate() },
             autoHandoff: { [weak self] on in self?.setAutoHandoff(key, on) })
+        participant.onTalkingHeadVoiceChosen { [weak self] voice in
+            self?.chooseTalkingHeadVoice(voice, forSeat: key)
+        }
+        participant.setTalkingHeadVoice(talkingHeadVoice(forSeat: key))
 
         apply(.seatFilled(key))
     }
@@ -119,6 +136,24 @@ public final class DebateCoordinator {
     public func endDebate() { apply(.endRequested) }
     public func setAutoHandoff(_ seat: String, _ on: Bool) {
         apply(.setAutoHandoff(seat: seat, on: on))
+    }
+
+    // MARK: Talking Head voices
+
+    /// Even seats take the first seat's character, odd seats the other one.
+    public func talkingHeadVoice(forSeat key: String) -> TalkingHeadVoice {
+        let index = room.seats.firstIndex { $0.key == key } ?? 0
+        return index.isMultiple(of: 2) ? firstSeatVoice : firstSeatVoice.opposite
+    }
+
+    /// A seat's picker changed: that seat gets `voice`, and every other seat
+    /// is flipped so the sides stay opposite.
+    public func chooseTalkingHeadVoice(_ voice: TalkingHeadVoice, forSeat key: String) {
+        let index = room.seats.firstIndex { $0.key == key } ?? 0
+        firstSeatVoice = index.isMultiple(of: 2) ? voice : voice.opposite
+        for (seat, participant) in participants {
+            participant.setTalkingHeadVoice(talkingHeadVoice(forSeat: seat))
+        }
     }
 
     // MARK: Effects

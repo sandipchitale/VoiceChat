@@ -10,6 +10,8 @@ public enum TalkingHeadVoice: String, CaseIterable, Sendable {
 
     var title: String { self == .male ? "Male (Daniel)" : "Female (Samantha)" }
     var symbol: String { self == .male ? "figure.stand" : "figure.stand.dress" }
+    /// The other character — what the opposing debate seat is given.
+    public var opposite: TalkingHeadVoice { self == .male ? .female : .male }
 }
 
 @MainActor
