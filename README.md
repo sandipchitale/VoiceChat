@@ -252,8 +252,9 @@ lip-syncs as it speaks.
   doesn't change the picker in ordinary conversations.
 - **Stop and Mute.** **Stop** closes the Talking Head window straight away. So does **Mute**,
   because muted means silent. While muted, Talking Head isn't started at all.
-- **What you give up.** There's no sentence highlighting in the reply pane, because Talking Head
-  doesn't report its progress. Instead, its own speech bubble highlights each word as it's spoken.
+- **Following along.** Click the Talking Head face to open its speech bubble. It shows the reply,
+  highlights each word as it's spoken, and scrolls to keep up. VoiceChat's own reply pane doesn't
+  highlight in this mode, because Talking Head doesn't report its progress to VoiceChat.
 
 Talking Head also speaks on-device, using macOS's built-in voices.
 

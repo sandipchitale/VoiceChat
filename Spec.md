@@ -1428,8 +1428,9 @@ window and remembered.
   one seat's picker sets the other seat to the opposite. A debate's choice is held by its
   `DebateCoordinator` and never written back to the shared setting.
 - The reading lasts as long as the `th` process does. Its exit is the natural finish that
-  `R-TTS-11` and `R-TTS-13` act on. **Stop** terminates the process. There is no sentence
-  highlight, because `th` reports no progress.
+  `R-TTS-11` and `R-TTS-13` act on. **Stop** terminates the process. The reply pane shows no
+  sentence highlight, because `th` reports no progress. Talking Head's speech bubble, opened by
+  clicking the face, highlights each word as it's spoken instead.
 - Mute means silence. While muted, `th` isn't launched, and the built-in synthesiser reads silently
   as usual. Muting while `th` is speaking terminates it, and the reading counts as finished.
 - Toggling applies from the next reading. Closing the window or quitting the app terminates a
