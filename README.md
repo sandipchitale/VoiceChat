@@ -168,7 +168,7 @@ instance — the daemon can also serve `converse` directly over MCP's Streamable
 (2025-03-26 spec revision). It's the same tool, same schema, same session/turn engine as the stdio
 path, just reached differently — in-process, with no VCP socket involved at all.
 
-It's off by default. Turn it on from the menu bar (`waveform.circle` icon → **Streamable HTTP (port
+It's off by default. Turn it on from the menu bar (`waveform.circle` icon → **MCP Server (port
 8765)**, a checkable item) or by setting `VOICECHAT_MCP_HTTP_PORT` before launch, which also makes it
 start automatically:
 

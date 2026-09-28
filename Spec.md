@@ -698,7 +698,7 @@ independent windows; there is no enforced cap today (a documented gap, not a dec
 **Binding and enablement (`R-APP-8`).** The listener **MUST** bind `127.0.0.1` only, never
 `0.0.0.0`, hardcoded rather than configurable. It does not start automatically unless
 `VOICECHAT_MCP_HTTP_PORT` is set at launch (which also selects the port); otherwise, the menu bar
-carries a checkable **"Streamable HTTP (port …)"** item ([§10](#10-menu-bar-applet)) that starts and
+carries a checkable **"MCP Server (port …)"** item ([§10](#10-menu-bar-applet)) that starts and
 stops it on demand, defaulting to port 8765. A bind failure (e.g. the port already taken) is reported
 with an alert when triggered by that menu item, and logged (not shown) when it happens during
 automatic startup — the same asymmetry `R-ARCH-3` draws between VCP (fatal if it can't start) and
@@ -1481,12 +1481,12 @@ permissions rows, Settings, Show Log, and Start at Login are not implemented (th
   ─────────────────────────────────
   Test Conversation…              ⌥⌘T
   ─────────────────────────────────
-  ✓ Streamable HTTP (port 8765)
+  ✓ MCP Server (port 8765)
   ─────────────────────────────────
   Quit VoiceChat
 ```
 
-The Streamable HTTP item ([§4.7](#47-streamable-http-transport)) is the one addition beyond the
+The **MCP Server (port …)** item, which toggles the Streamable HTTP transport ([§4.7](#47-streamable-http-transport)), is the one addition beyond the
 original design: a checkable toggle, checked while the transport is listening.
 
 | | |

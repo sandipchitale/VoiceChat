@@ -30,8 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installEditMenu()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "waveform.circle",
-                                           accessibilityDescription: "VoiceChat \(daemonVersion)")
+        statusItem.button?.image = NSImage(
+            systemSymbolName: "waveform.circle",
+            accessibilityDescription: "VoiceChat \(daemonVersion)")
         statusItem.button?.toolTip = "VoiceChat \(daemonVersion)"
 
         server = DaemonServer(version: daemonVersion)
@@ -70,10 +71,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if sessions.isEmpty {
             menu.addItem(disabled("Idle"))
         } else {
-            menu.addItem(disabled("\(sessions.count) conversation\(sessions.count == 1 ? "" : "s") open"))
+            menu.addItem(
+                disabled("\(sessions.count) conversation\(sessions.count == 1 ? "" : "s") open"))
             for session in sessions {
                 let label = "    \(session.model.sessionDisplayName) — turn \(session.model.turn)"
-                let item = NSMenuItem(title: label, action: #selector(focusSession(_:)), keyEquivalent: "")
+                let item = NSMenuItem(
+                    title: label, action: #selector(focusSession(_:)), keyEquivalent: "")
                 item.toolTip = session.model.workingDirectory
                 item.target = self
                 item.representedObject = session.id
@@ -82,8 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menu.addItem(.separator())
-        let newDebate = NSMenuItem(title: "New Debate…", action: #selector(newDebate),
-                                   keyEquivalent: "d")
+        let newDebate = NSMenuItem(
+            title: "New Debate…", action: #selector(newDebate),
+            keyEquivalent: "d")
         newDebate.keyEquivalentModifierMask = [.command, .option]
         newDebate.target = self
         menu.addItem(newDebate)
@@ -97,8 +101,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.toolTip = room.motion
             let submenu = NSMenu()
             for seat in coordinator.freeSeats {
-                let join = NSMenuItem(title: "Copy join instruction for “\(seat.key)”",
-                                      action: #selector(copyJoinInstruction(_:)), keyEquivalent: "")
+                let join = NSMenuItem(
+                    title: "Copy join instruction for “\(seat.key)”",
+                    action: #selector(copyJoinInstruction(_:)), keyEquivalent: "")
                 join.target = self
                 join.representedObject = room.joinInstruction(for: seat)
                 join.toolTip = "Paste this into the MCP client that should argue: \(seat.position)"
@@ -108,8 +113,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 submenu.addItem(disabled("Both seats taken"))
             }
             submenu.addItem(.separator())
-            let end = NSMenuItem(title: "End Debate", action: #selector(endDebate(_:)),
-                                 keyEquivalent: "")
+            let end = NSMenuItem(
+                title: "End Debate", action: #selector(endDebate(_:)),
+                keyEquivalent: "")
             end.target = self
             end.representedObject = room.id
             submenu.addItem(end)
@@ -118,22 +124,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menu.addItem(.separator())
-        let test = NSMenuItem(title: "Test Conversation…",
-                              action: #selector(startTestConversation), keyEquivalent: "t")
+        let test = NSMenuItem(
+            title: "Test Conversation…",
+            action: #selector(startTestConversation), keyEquivalent: "t")
         test.keyEquivalentModifierMask = [.command, .option]
         test.target = self
         menu.addItem(test)
 
         menu.addItem(.separator())
-        let httpItem = NSMenuItem(title: "Streamable HTTP (port \(HTTPServerLauncher.configuredPort))",
-                                  action: #selector(toggleHTTPServer), keyEquivalent: "")
+        let httpItem = NSMenuItem(
+            title: "MCP Server (port \(HTTPServerLauncher.configuredPort))",
+            action: #selector(toggleHTTPServer), keyEquivalent: "")
         httpItem.target = self
         httpItem.state = httpServer != nil ? .on : .off
-        httpItem.toolTip = "http://\(HTTPServerLauncher.host):\(HTTPServerLauncher.configuredPort)/mcp — reachable by any local user account, not just you (§10, R-APP-7 note)."
+        httpItem.toolTip =
+            "http://\(HTTPServerLauncher.host):\(HTTPServerLauncher.configuredPort)/mcp — reachable by any local user account, not just you (§10, R-APP-7 note)."
         menu.addItem(httpItem)
 
-        let configItem = NSMenuItem(title: "MCP Server Config…",
-                                    action: #selector(showMCPConfig), keyEquivalent: "")
+        let configItem = NSMenuItem(
+            title: "MCP Server Config…",
+            action: #selector(showMCPConfig), keyEquivalent: "")
         configItem.target = self
         menu.addItem(configItem)
 
@@ -167,8 +177,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
         appItem.submenu = appMenu
-        let quitItem = appMenu.addItem(withTitle: "Quit VoiceChat",
-                                       action: #selector(quit), keyEquivalent: "q")
+        let quitItem = appMenu.addItem(
+            withTitle: "Quit VoiceChat",
+            action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
 
         let editItem = NSMenuItem()
@@ -177,13 +188,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editItem.submenu = editMenu
 
         editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        let redo = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(
+            withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
         redo.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(.separator())
         editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(
+            withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(
+            withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
 
         NSApp.mainMenu = mainMenu
     }
@@ -221,21 +235,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// R-APP-3 — a full conversation loop with no MCP host, so speech, voices
     /// and commands can be checked without configuring anything.
     @objc private func startTestConversation() {
-        let session = Session(id: "test-\(UUID().uuidString)",
-                              title: nil,
-                              hostName: "Test Conversation",
-                              cwd: nil)
+        let session = Session(
+            id: "test-\(UUID().uuidString)",
+            title: nil,
+            hostName: "Test Conversation",
+            cwd: nil)
         testSessions.append(session)
 
         session.model.onSubmitPrompt = { [weak session] text in
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(600))
-                session?.present(response: """
-                    You said: **\(text)**
+                session?.present(
+                    response: """
+                        You said: **\(text)**
 
-                    This is the built-in test conversation, so nothing here came from a model. \
-                    Press **Got it!** to compose another turn, or **End conversation** to finish.
-                    """)
+                        This is the built-in test conversation, so nothing here came from a model. \
+                        Press **Got it!** to compose another turn, or **End conversation** to finish.
+                        """)
             }
         }
         session.model.onEnd = { _ in }
@@ -262,13 +278,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startHTTPServer() {
         let port = HTTPServerLauncher.configuredPort
-        let candidate = ConverseHTTPServer(host: HTTPServerLauncher.host, port: port,
-                                           daemonServer: server, waitMs: HTTPServerLauncher.waitMs)
+        let candidate = ConverseHTTPServer(
+            host: HTTPServerLauncher.host, port: port,
+            daemonServer: server, waitMs: HTTPServerLauncher.waitMs)
         Task { @MainActor in
             do {
                 try await candidate.start()
                 self.httpServer = candidate
-                self.log("MCP Streamable HTTP listening on http://\(HTTPServerLauncher.host):\(port)/mcp")
+                self.log(
+                    "MCP Streamable HTTP listening on http://\(HTTPServerLauncher.host):\(port)/mcp"
+                )
             } catch {
                 self.log("MCP HTTP server failed to start: \(error)")
                 // Unlike a VCP-socket failure at launch, this is a person
@@ -290,7 +309,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func presentHTTPFailure(port: Int, error: Error) {
         let alert = NSAlert()
         alert.messageText = "Couldn't start the Streamable HTTP MCP server"
-        alert.informativeText = "Port \(port) — \(error)\n\nAnother process may already be using this port. Set VOICECHAT_MCP_HTTP_PORT to a different one, or free the port and try again."
+        alert.informativeText =
+            "Port \(port) — \(error)\n\nAnother process may already be using this port. Set VOICECHAT_MCP_HTTP_PORT to a different one, or free the port and try again."
         alert.alertStyle = .warning
         alert.runModal()
     }
