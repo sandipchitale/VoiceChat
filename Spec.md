@@ -668,7 +668,7 @@ finishes: once stopped, a response stays however often it is replayed.
 | 11 | `Responding.Manual` | TTS `didFinish` | `Responding.Manual` | start | **Command** | — | — |
 | 12 | `Responding.Manual` | `Stop` | `Responding.Manual` | start | **Command** | stop | — |
 | 13 | `Responding.*` | `Got it!` (button, ⌘↩, or `Got it`) | `Composing` | start | Dictation | stop | +1 |
-| 14 | any non-terminal | **End conversation** / ⌘W / ⌥⌘E | `Ended` | stop | — | stop | — |
+| 14 | any non-terminal | **End conversation** / ⌘W / ⌘Q / ⌥⌘E | `Ended` | stop | — | stop | — |
 | 15 | any non-terminal | `session.close` from peer | `Ended` | stop | — | stop | — |
 | 16 | any non-terminal | VCP peer disconnect | `Ended` | stop | — | stop | — |
 
@@ -927,6 +927,7 @@ equivalents.
 | ⌘S | Export transcript | Any |
 | ⌥⌘E | **End conversation** | Any non-terminal state |
 | ⌘W | **Close** the window | `Ended` only — the app installs no `File`/`Window` menu, so ⌘W does not close a live window; use ⌥⌘E or the traffic light to end one |
+| ⌘Q | **Close** the front window (a live conversation ends, as with its close button) | Any window — never quits; only the menu bar menu's **Quit VoiceChat** does (`R-APP-10`) |
 | ⌘, | Settings | App-wide |
 
 `R-UI-19` **End conversation** ends the session immediately, with no confirmation, whatever is unsent
@@ -1349,6 +1350,7 @@ Designed but not built: permission rows, Settings…, Show Log and Start at Logi
 | `R-APP-7` | A session leaves this list, and its window and model are freed, only when its window actually closes, not when the conversation ends. An ended window keeps its banner and **Close** button until dismissed, and still counts as open. |
 | `R-APP-8` | **MCP Server (port …)** toggles [§4.7](#47-streamable-http-transport)'s listener live. It starts checked only when `VOICECHAT_MCP_HTTP_PORT` was set at launch; otherwise the default port is 8765. Turning it off fully releases the port and its tasks. |
 | `R-APP-9` | **MCP Server Config…** opens one floating dialog (reopening brings it forward) with sample configuration for both transports — stdio at `/Applications/VoiceChat.app/Contents/MacOS/voicechat-mcp`, HTTP at `http://127.0.0.1:<port>/mcp` — as a JSON tab (`mcpServers`) and a Shell tab of remove-then-add commands for Claude Code, Antigravity and Codex, each with a copy button. **Copy** / **Copy All** and **Save…** (`NSSavePanel`) act on the tab. |
+| `R-APP-10` | ⌘Q never quits the daemon. With one of its windows in front, it closes that window, the same as the window's own close button; a live conversation closed this way ends (§5.2 row 14). Only **Quit VoiceChat** in the menu bar menu quits, so conversations started later still find the daemon running. |
 
 ---
 

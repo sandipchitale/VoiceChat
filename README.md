@@ -30,6 +30,8 @@ The host's model calls one [MCP](https://modelcontextprotocol.io) tool, `convers
   again (or a selection); **Got it!** moves on.
 - **Keyboard only** works too, whenever speech is unavailable or unwanted.
 - The window is a frameless, translucent, always-on-top pane of glass.
+- **⌘Q closes the window, not the app.** VoiceChat stays in the menu bar, ready for the next
+  conversation. Quit it from its menu bar menu (**Quit VoiceChat**).
 
 The one rule the design is built around: **the MCP server and the window never disagree about whose
 turn it is.** A single state machine drives every control.

@@ -171,16 +171,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installEditMenu() {
         let mainMenu = NSMenu()
 
-        // A minimal application menu so ⌘Q behaves and the Edit menu is not the
-        // first (application) slot.
+        // A minimal application menu so the Edit menu is not the first
+        // (application) slot. ⌘Q here closes the front window rather than
+        // quitting: the daemon stays in the menu bar, and only the menu bar
+        // menu's Quit VoiceChat ends it (R-APP-10).
         let appItem = NSMenuItem()
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
         appItem.submenu = appMenu
-        let quitItem = appMenu.addItem(
-            withTitle: "Quit VoiceChat",
-            action: #selector(quit), keyEquivalent: "q")
-        quitItem.target = self
+        let closeItem = appMenu.addItem(
+            withTitle: "Close Window",
+            action: #selector(closeKeyWindow), keyEquivalent: "q")
+        closeItem.target = self
 
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
@@ -264,6 +266,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+
+    /// ⌘Q with a window in front (R-APP-10). Conversation and debate-setup
+    /// windows are borderless, and `performClose` only beeps for a window with
+    /// no close button, so those are closed directly, the same as their own
+    /// close buttons do. Closing a live conversation ends it (§5.2 row 14).
+    @objc private func closeKeyWindow() {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else { return }
+        if window.styleMask.contains(.closable) {
+            window.performClose(nil)
+        } else {
+            window.close()
+        }
     }
 
     // MARK: Streamable HTTP MCP transport (§4, §10)
