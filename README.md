@@ -49,6 +49,9 @@ shasum -a 256 -c VoiceChat-<version>.zip.sha256   # optional check
 macOS asks for Microphone and Speech Recognition access the first time you dictate (and may ask again
 after an update, because the app is ad-hoc signed). Requires macOS 26 (Tahoe) or later.
 
+To keep VoiceChat in the menu bar, turn on **Launch at Login** in its menu. If macOS asks, allow it in
+System Settings → General → Login Items.
+
 **Build from source** (Swift 6; the MCP Swift SDK 0.12.1 is fetched by SwiftPM):
 
 ```bash
@@ -123,7 +126,9 @@ the replies.
   keyboard, and it goes away when the conversation ends, or when you mute or turn Talking Head off.
 - **Stop and Mute:** Stop ends the reading at once. Mute ends it too (muted means silent) and lets the
   face go.
-- **Debates:** the two sides always get opposite faces, each showing its own listening and thinking.
+- **Debates:** the two sides always get opposite faces. With Talking Head 0.0.13 or later, each face
+  has its own window, side by side for the whole debate: one listens or thinks while the other
+  speaks, and they take turns.
 - **Following along:** click the face to open its speech bubble, which highlights each word. VoiceChat's
   own reply pane doesn't highlight in this mode.
 

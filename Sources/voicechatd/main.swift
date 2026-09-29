@@ -148,6 +148,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(configItem)
 
         menu.addItem(.separator())
+        let loginItem = NSMenuItem(
+            title: "Launch at Login",
+            action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        loginItem.target = self
+        loginItem.state = LoginItem.isEnabled ? .on : .off
+        if LoginItem.needsApproval {
+            loginItem.toolTip = "Waiting for your approval in System Settings → General → Login Items."
+        }
+        menu.addItem(loginItem)
+
         let quit = NSMenuItem(title: "Quit VoiceChat", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
@@ -266,6 +276,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+
+    /// R-APP-5 — registers or unregisters VoiceChat as a login item, so it is
+    /// in the menu bar after every login.
+    @objc private func toggleLaunchAtLogin() {
+        LoginItem.setEnabled(!LoginItem.isEnabled)
+        rebuildMenu()
     }
 
     /// ⌘Q with a window in front (R-APP-10). Conversation and debate-setup

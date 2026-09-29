@@ -1334,10 +1334,11 @@ The menu:
   ✓ MCP Server (port 8765)
   MCP Server Config…
   ─────────────────────────────────
+  ✓ Launch at Login
   Quit VoiceChat                  ⌘Q
 ```
 
-Designed but not built: permission rows, Settings…, Show Log and Start at Login (they depend on
+Designed but not built: permission rows, Settings… and Show Log (they depend on
 [§11](#11-settings) and [§12.3](#123-logging)).
 
 | | |
@@ -1345,7 +1346,7 @@ Designed but not built: permission rows, Settings…, Show Log and Start at Logi
 | `R-APP-2` | Selecting a session in the list focuses its window. |
 | `R-APP-3` | **Test Conversation…** opens a window on a loopback session with no MCP host, echoing prompts back as responses. It **MUST** ship in release builds: it's how a person checks the microphone, voice and commands without a host. |
 | `R-APP-4` | *Not implemented:* permission rows and **Permissions…**. |
-| `R-APP-5` | *Not implemented:* **Start at Login**. The app starts manually or by the MCP server's auto-launch (`R-ARCH-3`). |
+| `R-APP-5` | **Launch at Login** registers or unregisters the app with `SMAppService.mainApp`, and is checked while it's registered (including while macOS waits for approval, when it also opens System Settings → General → Login Items). Without it, the app starts manually or by the MCP server's auto-launch (`R-ARCH-3`). |
 | `R-APP-6` | **Quit** first ends every session (each `turn.await` resolves `ended`), so no host is left hanging. It is immediate; there is no confirmation. |
 | `R-APP-7` | A session leaves this list, and its window and model are freed, only when its window actually closes, not when the conversation ends. An ended window keeps its banner and **Close** button until dismissed, and still counts as open. |
 | `R-APP-8` | **MCP Server (port …)** toggles [§4.7](#47-streamable-http-transport)'s listener live. It starts checked only when `VOICECHAT_MCP_HTTP_PORT` was set at launch; otherwise the default port is 8765. Turning it off fully releases the port and its tasks. |
