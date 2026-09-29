@@ -14,6 +14,8 @@ public final class Session {
     public let windowController: ConversationWindowController
     private let speech = SpeechOutputController()
     private let listening = SpeechInputController()
+    /// This window's listening/thinking face on Talking Head (R-TTS-17).
+    private let presence = TalkingHeadPresenceLink()
     /// The current microphone lease, held only while this session is listening.
     private var micLease: MicrophoneLease?
 
@@ -64,6 +66,7 @@ public final class Session {
             Task { @MainActor in self?.observeMute() }
         }
         speech.isMuted = GlassSettings.shared.speechMuted
+        updatePresence()
     }
 
     /// Like mute, the Talking Head toggle is shared by every window. The
@@ -78,6 +81,17 @@ public final class Session {
         }
         speech.useTalkingHead = GlassSettings.shared.useTalkingHead
         speech.talkingHeadVoice = model.seatTalkingHeadVoice ?? GlassSettings.shared.talkingHeadVoice
+        updatePresence()
+    }
+
+    /// R-TTS-17 — the face follows the state machine, and follows mute and the
+    /// Talking Head toggle at once. In a debate each seat holds its own
+    /// presence, with its own voice.
+    private func updatePresence() {
+        presence.update(machine: model.machine,
+                        talkingHeadOn: GlassSettings.shared.useTalkingHead && TalkingHeadSpeaker.isInstalled,
+                        muted: GlassSettings.shared.speechMuted,
+                        voice: speech.talkingHeadVoice)
     }
 
     /// The project a working directory names, or `nil` for the filesystem root.
@@ -101,6 +115,8 @@ public final class Session {
         // A cancellation is always something the model already drove (Stop, Got
         // it!, or a fresh Play), so it must not re-enter the state machine.
         speech.onCancelled = { [weak self] in self?.model.setHighlight(nil) }
+        speech.onWarning = { [weak self] message in self?.model.showWarning(message) }
+        model.onMachineChanged = { [weak self] _ in self?.updatePresence() }
 
         model.onStartSpeech = { [weak self] attributed, selection in
             self?.speech.speak(attributed, selection: selection)
@@ -135,7 +151,12 @@ public final class Session {
         }
 
         listening.onVolatile = { [weak self] text in self?.model.setVolatile(text) }
-        listening.onFinal = { [weak self] text in self?.model.handleFinalUtterance(text) }
+        listening.onFinal = { [weak self] text in
+            guard let self else { return }
+            // R-TTS-18 — a nod for each phrase heard while composing.
+            if self.model.state == .composing { self.presence.nod(voice: self.speech.talkingHeadVoice) }
+            self.model.handleFinalUtterance(text)
+        }
         listening.onLevel = { [weak self] level in self?.model.setMicLevel(level) }
         listening.onStateChange = { [weak self] state in
             guard let self else { return }
@@ -193,6 +214,7 @@ public final class Session {
             // A Talking Head window outliving its conversation cannot be
             // stopped from anywhere.
             self?.speech.stop()
+            self?.presence.close()
             self?.onDisposed?(id)
         }
     }

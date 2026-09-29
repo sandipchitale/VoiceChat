@@ -4,12 +4,12 @@
 
 | | |
 |---|---|
-| Document version | 2.2 — adds the Streamable HTTP MCP transport ([§4.7](#47-streamable-http-transport)), beyond the original P0–P6 phase plan |
-| Status | Implemented through **P4** (core loop, speech I/O, dictation, full command mode); **P5** partial (history, export, menu bar, Test Conversation done; Settings not built); **P6** not started (ad-hoc signed only). A second MCP transport (Streamable HTTP, [§4.7](#47-streamable-http-transport)) is implemented and opt-in, but has a known, unresolved bug — see that section before relying on it. |
-| Supersedes | v1.0 (the original 38-line sketch, preserved verbatim in [Appendix C](#appendix-c--original-specification-v10)) |
+| Document version | 2.3 — adds Talking Head presence over its spooler socket ([§9.5](#95-talking-head)) |
+| Status | Implemented: the core loop, speech input and output, dictation and command mode, history, export, menu bar, Test Conversation, debates ([§17](#17-debate)), Talking Head, and the opt-in Streamable HTTP transport ([§4.7](#47-streamable-http-transport)). Not built: the Settings window. Ad-hoc signed, not notarised. |
+| Supersedes | v1.0 (the original sketch, kept in [Appendix C](#appendix-c--original-specification-v10)) |
 | Target platform | macOS 26.0 (Tahoe) or later, Apple silicon and Intel |
-| Language / toolchain | Swift 6 (strict concurrency), Xcode 27 |
-| Companion documents | `Commands and Dictation.md` — **normative** voice vocabulary. Not modified by this spec. |
+| Language / toolchain | Swift 6 (strict concurrency) |
+| Companion documents | `Commands and Dictation.md`, the **normative** voice vocabulary |
 
 ---
 
@@ -20,11 +20,9 @@
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are to be interpreted as
 described in RFC 2119.
 
-Normative requirements carry stable identifiers of the form `R-<AREA>-<n>` (e.g. `R-FSM-4`). These
-identifiers are referenced by the acceptance checklist in [§15](#15-testing-and-acceptance-criteria)
-and by the traceability table in [Appendix D](#appendix-d--traceability-to-v10). Identifiers are
-stable across revisions of this document: when a requirement is removed, its identifier is retired,
-not reused.
+Requirements carry stable identifiers, `R-<AREA>-<n>` (e.g. `R-FSM-4`), used by the tests, the code
+and [§15](#15-testing-and-acceptance-criteria). A removed requirement's identifier is retired, never
+reused.
 
 ### 0.2 Document authority
 
@@ -34,12 +32,8 @@ Where this document and `Commands and Dictation.md` overlap:
 - This document is authoritative for **how phrases are recognised, prioritised, dispatched, and
   what happens when they are not recognised**.
 
-This document MUST NOT duplicate the vocabulary. [§8.5](#85-command-dispatch-contract) defines the
-contract that binds the two.
-
-Three points of tension between v1.0 and `Commands and Dictation.md` are resolved explicitly in
-[§0.4](#04-resolved-conflicts). Where this document contradicts v1.0, this document wins; the
-reasoning is recorded so it can be overturned deliberately rather than by accident.
+This document doesn't duplicate the vocabulary; [§8.5](#85-command-dispatch-contract) binds the two.
+Where this document contradicts v1.0, this document wins ([§0.4](#04-resolved-conflicts) records why).
 
 ### 0.3 Normative references
 
@@ -59,20 +53,16 @@ v1.0 states that voice control must be off while a response is being read, so th
 speech is not transcribed as a prompt. `Commands and Dictation.md` states that `Play` "locks voice
 to Command Mode", and scopes the Text Editing family to "Both Panes when Not Speaking".
 
-*Resolution:* **v1.0 wins on the microphone.** The recogniser is fully torn down whenever audio is
-playing (`R-TTS-4`). `Commands and Dictation.md` is satisfied by reading "locks voice to Command
-Mode" as *the mode the recogniser returns to when playback stops or finishes* — which is precisely
-what `R-TTS-5` specifies — and by reading "when Not Speaking" literally, since editing commands are
-unreachable while muted. No hands-free interruption of playback is possible; `Stop` and `Got it!`
-are reachable by mouse and keyboard during playback ([§6.8](#68-keyboard-map)).
+*Resolution:* **v1.0 wins.** The recogniser is torn down whenever audio plays (`R-TTS-4`); "locks
+voice to Command Mode" means the mode it returns to afterwards (`R-TTS-5`). Playback can't be
+interrupted by voice; `Stop` and `Got it!` work by mouse and keyboard ([§6.8](#68-keyboard-map)).
 
 **C2 — "Slider".**
 v1.0 calls for "a slider to enable/disable dictation mode" that also "switches between dictation
 mode and command mode". A continuous slider is the wrong native control for a two-valued choice.
 
-*Resolution:* the control is a two-position segmented control labelled `Dictation | Command`,
-accompanied by a separate microphone on/off toggle ([§6.3](#63-left-pane--talk)). Together these
-provide both behaviours v1.0 asks of the "slider".
+*Resolution:* a `Dictation | Command` segmented control plus a separate microphone toggle
+([§6.3](#63-left-pane--talk)).
 
 **C3 — `Add to vocabulary` binding.**
 `Commands and Dictation.md` binds `Add to vocabulary` to
@@ -80,17 +70,12 @@ provide both behaviours v1.0 asks of the "slider".
 type in the Speech framework; that call signature belongs to SiriKit's `INVocabulary`, and
 `.userContext` is not a Speech framework concept.
 
-*Resolution:* the command's **behaviour** is honoured exactly as written — the selected word or
-phrase is persisted into a user vocabulary. The **binding** is specified in
-[§8.6](#86-custom-vocabulary) against a `VocabularyStore` that is applied to the active transcriber.
-`Commands and Dictation.md` is not edited. The replacement API was confirmed against the macOS 26
-SDK during implementation — `AnalysisContext.contextualStrings` — so the behaviour the command
-describes is fully available under a different call.
+*Resolution:* the behaviour is honoured — the selection is saved into a user vocabulary — through a
+`VocabularyStore` applied as `AnalysisContext.contextualStrings` ([§8.6](#86-custom-vocabulary)).
 
 **C4 — Formatting commands imply formatted text.**
-`Commands and Dictation.md` includes `Bold that`, `Italicise that`, and `Underline that`. These are
-meaningless over a plain-text buffer. This is the direct justification for the attributed-text model
-in [§7](#7-text-model).
+`Bold that`, `Italicise that` and `Underline that` need formatted text, hence the attributed-text model
+of [§7](#7-text-model).
 
 ---
 
@@ -98,15 +83,13 @@ in [§7](#7-text-model).
 
 ### 1.1 What this is
 
-VoiceChat lets a person hold a spoken, multi-turn conversation with whatever LLM is driving their
-MCP host — Claude Code, an IDE, an agent — without typing and without looking at the host's own
-chat surface. The host's model calls a single MCP tool; a window appears; the person speaks; the
-model answers; the answer is read aloud; the loop continues until the person ends it.
+VoiceChat lets a person hold a spoken, multi-turn conversation with the LLM driving their MCP host,
+without typing. The host's model calls one MCP tool; a window appears; the person speaks; the model
+answers; the answer is read aloud; the loop continues until the person ends it.
 
-The design goal that drives most of the decisions below is stated in v1.0 in one line — *"Make sure
-that MCP server does not get out of sync with the UI"* — and it is treated here as the primary
-correctness requirement, not a nicety. [§3](#3-vcp--daemon--mcp-server-control-protocol) and
-[§5](#5-session-and-turn-state-machine) exist almost entirely to satisfy it.
+v1.0's one-line goal, *"Make sure that MCP server does not get out of sync with the UI"*, is the
+primary correctness requirement; [§3](#3-vcp--daemon--mcp-server-control-protocol) and
+[§5](#5-session-and-turn-state-machine) exist to satisfy it.
 
 ### 1.2 End-to-end flow
 
@@ -153,28 +136,18 @@ correctness requirement, not a nicety. [§3](#3-vcp--daemon--mcp-server-control-
 
 | | |
 |---|---|
-| N1 | VoiceChat does not talk to any LLM API. It has no API key, no model selection, and no notion of tokens or cost. The host's model is the only model. The optional `model` field on `converse` ([§4.2](#42-the-converse-tool)) is a passive display label the caller supplies — VoiceChat never chooses, calls, or validates a model from it. |
+| N1 | VoiceChat talks to no LLM API: no API key, model selection, tokens or cost. The optional `model` field on `converse` ([§4.2](#42-the-converse-tool)) is only a display label. |
 | N2 | VoiceChat does not manage conversation history, context windows, or memory. The host does that. |
 | N3 | No wake word, no always-on listening outside an open conversation window. |
-| N4 | No remote transport. `stdio` only. |
+| N4 | No remote transport: stdio, and Streamable HTTP bound to `127.0.0.1` only ([§4.7](#47-streamable-http-transport)). |
 | N5 | No iOS/iPadOS target. |
 | N6 | Not a general dictation utility. It dictates into its own panes only. |
 
 ### 1.5 The two reference screenshots
 
-Two screenshots of a web-based implementation informed this design and are referenced below as
-**Ref-A** (left pane active, composing) and **Ref-B** (right pane active, speaking). They are
-**inspiration only**. Every behaviour they suggest is restated here in native terms, and several
-are deliberately changed:
-
-| Ref behaviour | This spec |
-|---|---|
-| Purple outer glow on the active pane | 2 pt `controlAccentColor` focus ring plus a soft accent shadow ([§6.2](#62-pane-anatomy)) |
-| `Enter` sends, `Shift+Enter` newline | `⌘↩` sends, `↩` inserts a newline ([§6.8](#68-keyboard-map)) — a multi-line composition pane must not lose text to a stray Return |
-| Window title flips "Type or dictate" → "Speak" | `NSWindow.subtitle` tracks session state ([§6.1](#61-window)) |
-| Buttons grey out per state | Normative, specified as a matrix ([§6.6](#66-control-enablement-matrix)) |
-| Single turn visible, no history | Collapsible history strip for the current conversation ([§6.5](#65-history-strip)) |
-| Fixed, cramped proportions | Explicit minimum sizes and padding scale ([§6.7](#67-metrics-typography-and-colour)) |
+Two screenshots of a web implementation (**Ref-A**, composing; **Ref-B**, speaking) inspired this
+design; every behaviour taken from them is restated natively below, several deliberately changed
+(e.g. `⌘↩` sends and `↩` inserts a newline, [§6.8](#68-keyboard-map)).
 
 ---
 
@@ -183,7 +156,7 @@ are deliberately changed:
 ### 2.1 Process topology
 
 ```
-VoiceChat.app                          LSUIElement = 1 · ad-hoc signed (P6 not started)
+VoiceChat.app                          LSUIElement = 1 · ad-hoc signed
 │                                      one instance per logged-in user
 ├── MenuBarController                  status item, session list, Streamable HTTP toggle
 ├── VCPListener                        AF_UNIX SOCK_STREAM listener
@@ -197,24 +170,14 @@ VoiceChat.app                          LSUIElement = 1 · ad-hoc signed (P6 not 
                                        one process per MCP host connection, spawned by the host
 ```
 
-Two independent transports reach the same `converse` tool and the same `SessionRegistry`: the
-original stdio path (a separate `voicechat-mcp` process per host, talking over VCP) and an in-process
-**Streamable HTTP** listener ([§4.7](#47-streamable-http-transport)) for MCP clients — web-based
-agents among them — that speak HTTP rather than spawning a child process. A session opened either
-way is indistinguishable to the rest of the app: it is a `Session` in the registry, shown in the menu
-bar, subject to the same true-disposal rule (`R-APP-7`).
+Two transports reach the same `converse` tool and `SessionRegistry`: stdio (a `voicechat-mcp` process
+per host, over VCP) and an in-process Streamable HTTP listener ([§4.7](#47-streamable-http-transport)).
+Sessions opened either way are the same to the rest of the app (`R-APP-7`).
 
 `R-ARCH-1` The daemon, the menu bar applet, and all conversation windows **MUST** be the same
-process. This is not a simplification of convenience; it is forced:
-
-- Microphone and speech-recognition authorisation (TCC) is granted to a **signed application
-  bundle**. A headless `launchd` daemon without a bundle cannot reliably hold those grants, and
-  splitting the applet from the window host would require two separate TCC identities for the same
-  user-visible feature.
-- `NSStatusItem` and `NSWindow` must be created by the same `NSApplication` instance.
-
-The v1.0 description of "a background daemon" and "a menubar applet" is therefore realised as two
-*roles* of one process. The applet is the daemon's control surface.
+process: microphone and speech-recognition permission (TCC) is granted to one signed app bundle, and
+`NSStatusItem` and `NSWindow` need the same `NSApplication`. v1.0's "background daemon" and "menubar
+applet" are two roles of that process.
 
 `R-ARCH-2` The MCP server **MUST** ship inside the app bundle at
 `Contents/MacOS/voicechat-mcp`, so that one install provides both halves and their versions cannot
@@ -265,14 +228,9 @@ user action ([§6.5](#65-history-strip)).
 
 ### 2.4 Sandboxing
 
-`R-ARCH-7` VoiceChat v1 is **not** App-Sandboxed. It is signed with a Developer ID certificate,
-runs under the hardened runtime, and is notarised.
-
-Rationale: the rendezvous socket must be reachable by an unsandboxed `voicechat-mcp` process spawned
-by an arbitrary host with an arbitrary working directory and environment. A sandboxed app's
-container path is not a viable rendezvous point across that boundary. Sandboxing would require
-replacing the socket with an XPC Mach service registered by `launchd`, which is a coherent design
-but a larger one. Recorded as deferred item **B1**.
+`R-ARCH-7` VoiceChat is **not** App-Sandboxed: the socket must be reachable by a `voicechat-mcp`
+spawned by any host, which a sandbox container can't offer (an XPC service would; deferred item
+**B1**). Releases are ad-hoc signed; Developer ID signing and notarisation are deferred.
 
 ---
 
@@ -287,10 +245,8 @@ but a larger one. Recorded as deferred item **B1**.
 `\n` (JSON Lines). Literal newlines inside strings are escaped as `\n` by JSON encoding, so the
 framing is unambiguous. A line longer than 16 MiB **MUST** be rejected and the connection closed.
 
-*Why a socket and not XPC:* it is inspectable with `nc`, requires no `launchd` registration to
-test, works when the daemon is launched from Xcode under a debugger, lets the MCP server reuse the
-same JSON-RPC codec it already needs for stdio, and keeps the daemon launchable as a plain
-application. The XPC alternative is recorded as **B1**.
+A socket (rather than XPC, deferred as **B1**) is inspectable with `nc`, needs no `launchd`
+registration, and reuses the JSON-RPC codec the stdio server needs anyway.
 
 ### 3.2 Handshake and access control
 
@@ -437,22 +393,16 @@ declare protocol revision **2025-11-25**.
 `R-MCP-2` The server **MUST** declare the `tools` capability only. It **MUST NOT** declare
 `resources`, `prompts`, `sampling`, or `elicitation`.
 
-*On not using elicitation:* MCP's `elicitation/create` is the idiomatic way for a server to ask a
-human a question, and it is the right tool when the answer is a short structured value rendered by
-the host's own UI. It is the wrong tool here for three reasons: the conversation surface is a
-long-lived window the server owns rather than a one-shot form; elicitation requires the *client* to
-declare the capability, which many hosts do not; and the flow here is a symmetric two-way
-conversation, not a request for a field. The tool-return loop in [§4.3](#43-the-conversation-loop)
-works on every host that can call a tool at all.
+Elicitation doesn't fit: the conversation is a long-lived window, not a one-shot form, and many hosts
+don't support it. The tool-return loop of [§4.3](#43-the-conversation-loop) works on any host that
+can call a tool.
 
 `R-MCP-3` The server **MUST NOT** write anything to `stdout` except JSON-RPC frames. All logging
-goes to `stderr` and to the log file ([§12.3](#123-logging)). A single stray `print` corrupts the
-protocol stream and is the single most common way a stdio MCP server fails.
+goes to `stderr` and to the log file ([§12.3](#123-logging)).
 
 ### 4.2 The `converse` tool
 
-One tool covers starting a conversation and every subsequent turn. A second tool would create a
-second way for the model to get the sequence wrong.
+One tool covers starting a conversation and every turn, so there's only one sequence to get right.
 
 ```jsonc
 {
@@ -498,13 +448,13 @@ second way for the model to get the sequence wrong.
 ```
 
 `R-MCP-4` Results **MUST** be returned as **both** `structuredContent` (validating against
-`outputSchema`) and a human-readable `content[0].text` mirror. Many hosts surface only the text
-block to the model; a structured-only result would be invisible to them.
+`outputSchema`) and a human-readable `content[0].text` mirror, since many hosts show the model only
+the text.
 
 #### Tool description (normative text)
 
-This description is the contract that teaches the host's model how to run the loop. It is
-reproduced here verbatim and **MUST** ship unchanged apart from version numbers.
+This description teaches the host's model the loop. It **MUST** ship as written (the shipped text also
+covers debates, [§17](#17-debate)).
 
 > Hold a spoken, multi-turn conversation with the user in a dedicated window on their Mac. The user
 > speaks or types; you reply; your reply is read aloud to them; they answer. Use this when the user
@@ -535,9 +485,8 @@ reproduced here verbatim and **MUST** ship unchanged apart from version numbers.
 > - If a call returns an error, report it to the user in plain language and stop; do not retry in a
 >   loop.
 
-`R-MCP-5` The description **MUST** state the `waiting` → immediate-recall rule. A model that treats
-`waiting` as an ending is the most likely failure mode of this design, and it is prevented by
-instruction, not by protocol.
+`R-MCP-5` The description **MUST** state the `waiting` → immediate-recall rule: treating `waiting` as
+an ending is the likeliest failure, and only the instruction prevents it.
 
 ### 4.3 The conversation loop
 
@@ -558,17 +507,13 @@ trusting it.
 tool error explaining that only one is valid at a time.
 
 `R-MCP-8` Calling `converse` with `message` when no session is open **MUST** open a session and
-discard the message with a note in the result text — the model has skipped step 1, and silently
-displaying a reply to a prompt that was never given would desynchronise the conversation.
+discard the message with a note in the result text (a reply to a prompt never given would
+desynchronise the conversation).
 
-`R-MCP-17` The stdio process is not one-conversation-per-process (`R-MCP-6` already commits to
-holding state "for the lifetime of the stdio process", and a host is free to reuse the same
-connection for many conversations in one session). A bare `converse()` call — no `message`, no
-`continuation` — arriving after a conversation has ended **MUST** be treated as the start of a new
-one: the server discards the old session id, turn counters, and ended flag, and proceeds exactly as
-on the very first call, opening a new session and a new window. A call that still carries `message`
-or `continuation` after ending is unambiguously stale (the model missed the `ended` result) and
-**MUST** keep returning `ended`, never silently reattaching stale content to a new conversation.
+`R-MCP-17` One stdio process may hold many conversations in turn. A bare `converse()` (no `message`,
+no `continuation`) after a conversation ended **MUST** start a new one, discarding the old session
+id, counters and ended flag, exactly as a first call. A call that still carries `message` or
+`continuation` after ending is stale and **MUST** keep returning `ended`.
 
 ### 4.4 Result rendering
 
@@ -584,10 +529,9 @@ tell me another one
 Answer this, then call `converse` again with your answer in `message` to continue.
 ```
 
-`R-MCP-9` The user's words **MUST** be delimited by `<user_message>` … `</user_message>`. This is
-prompt-injection hygiene: it keeps arbitrary spoken content lexically separated from the loop
-instructions that surround it. The server **MUST** neutralise any literal `</user_message>` occurring
-in the transcript before wrapping.
+`R-MCP-9` The user's words **MUST** be delimited by `<user_message>` … `</user_message>`, separating
+them from the loop instructions, and any literal `</user_message>` in the transcript **MUST** be
+neutralised first.
 
 **`status: "waiting"`** — `content[0].text`:
 
@@ -612,11 +556,8 @@ the model "should only show 'Conversation ended'".
 
 ### 4.5 Long-wait strategy
 
-A turn can legitimately take many minutes: a person may think, be interrupted, or compose a long
-prompt by voice. MCP clients apply request timeouts — commonly 60 s — and the protocol's answer is
-`notifications/progress`, which many clients use to reset that timer. **That mechanism is not
-reliable enough to depend on**: several clients and SDKs have known defects where the timer is not
-reset on progress, or where the progress callback is never wired through.
+A turn can take many minutes, but MCP clients time requests out (often after 60 s), and not every
+client resets its timer on `notifications/progress`. So progress alone can't be relied on.
 
 `R-MCP-11` The server **MUST** implement both layers:
 
@@ -629,9 +570,7 @@ reset on progress, or where the progress callback is never wired through.
   elapses, the call **returns** `status:"waiting"` with a continuation token instead of continuing
   to block.
 
-`R-MCP-12` Layer B **MUST NOT** be disabled by the presence of a progress token. Layer A reduces how
-often the loop visibly round-trips; Layer B is what guarantees the call always returns before any
-client's timeout. Correctness rests on B alone.
+`R-MCP-12` Layer B **MUST NOT** be disabled by a progress token: correctness rests on B alone.
 
 `R-MCP-13` The bounded wait **MUST NOT** advance the turn, display anything, or change the window in
 any way. From the person's point of view a `waiting` cycle is invisible.
@@ -640,8 +579,8 @@ any way. From the person's point of view a `waiting` cycle is invisible.
 
 `R-MCP-14` On `notifications/cancelled` for an in-flight `converse`, the server **MUST** send
 `session.close(reason: "host_cancelled")` and stop. The window shows a terminal banner
-([§6.9](#69-terminal-and-error-presentation)). Cancellation ends the session rather than the turn:
-a half-cancelled turn is precisely the desynchronised state this design exists to prevent.
+([§6.9](#69-terminal-and-error-presentation)). Cancellation ends the session, not just the turn, since
+a half-cancelled turn is exactly the desynchronised state to avoid.
 
 `R-MCP-15` On `stdin` EOF, `SIGTERM`, or `SIGINT`, the server **MUST** send
 `session.close(reason: "mcp_exit")` and exit within 2 s.
@@ -651,82 +590,50 @@ the socket path and suggesting relaunching VoiceChat. It **MUST NOT** retry sile
 
 ### 4.7 Streamable HTTP transport
 
-*Status: implemented, opt-in, off by default — see the open issue at the end of this section before
-relying on it.*
+*Opt-in, off by default.* A second way to reach the **same** `converse` tool, for MCP clients that
+speak HTTP rather than spawning a stdio process.
 
-Everything in this section is a second way to reach the **same** `converse` tool ([§4.2](#42-the-converse-tool)),
-not a second tool or a second contract. An MCP client that speaks HTTP rather than spawning a stdio
-child process — a web-based agent, for instance — can drive VoiceChat exactly as `voicechat-mcp`
-does, without any host-side process management at all.
+`R-MCP-18` The tool's schema, description and result rendering **MUST** be defined once
+(`ConverseTool`, in `VoiceChatKit`) and used by both transports; `tools/list` is byte-identical on
+both.
 
-`R-MCP-18` The tool's schema, description, and result-rendering **MUST** be defined once
-(`ConverseTool`, in `VoiceChatKit`) and consumed identically by both transports. A person or a model
-comparing `tools/list` output between `voicechat-stdio` and `voicechat-http` **MUST** see
-byte-identical text — confirmed by the manual verification of [§15.4](#154-manual-acceptance-checklist).
-
-**Shared engine, two gateways.** The state machine behind `converse` — turn/continuation bookkeeping,
-the restart-after-`ended` behaviour of `R-MCP-17` — is `ConverseSessionEngine` (`VoiceChatKit`), an
-actor generic over a `ConverseSessionGateway` protocol (`openSession`/`awaitTurn`/`closeSession`/
-`discardSession`). Two conformances exist:
-
-| Gateway | Reaches a session by | Lives in |
-|---|---|---|
-| `VCPSessionGateway` | VCP, over the Unix socket, exactly as before | `voicechat-mcp` |
-| `InProcessSessionGateway` | Calling `DaemonServer`/`Session`/`TurnCoordinator` directly — no socket, no JSON-RPC framing | `VoiceChatMCPServer` |
+Both transports share `ConverseSessionEngine` (`VoiceChatKit`: turn and continuation bookkeeping, and
+`R-MCP-17`), over a `ConverseSessionGateway` (`openSession`/`awaitTurn`/`closeSession`/
+`discardSession`): `VCPSessionGateway` in `voicechat-mcp` (over VCP), and `InProcessSessionGateway` in
+`VoiceChatMCPServer` (calling `DaemonServer`/`Session`/`TurnCoordinator` directly).
 
 `R-MCP-19` The HTTP transport **MUST** reach a session in-process, never by connecting to VCP as a
-second client of itself. `TurnCoordinator.awaitTurn` is already transport-agnostic
-(the daemon's own VCP dispatch calls it the same way); routing HTTP through VCP as well would only
-add a socket hop with no benefit and a second, redundant trust boundary.
+client of itself.
 
-**Transport itself.** The Streamable HTTP transport (2025-03-26 MCP spec revision: a single `/mcp`
-endpoint, POST for client→server messages with an SSE-streamed response, GET for a standalone
-server→client stream, `Mcp-Session-Id` for session identity, `DELETE` to end a session) is the
-swift-sdk's own `StatefulHTTPServerTransport`, unmodified. VoiceChat supplies only the socket
-listener — a SwiftNIO adapter, `HTTPApp` (`VoiceChatMCPServer`), closely adapted from the SDK's own
-reference implementation — and the one thing the reference has no analogue for: a per-session
-`onClose` hook. Without it, `DELETE`, an idle timeout, or the app quitting would tear down the HTTP
-session bookkeeping while leaving that conversation's window open forever; `onClose` calls
-`engine.shutdown(reason:)`, which reaches the real `Session` and closes it, exactly as `R-APP-7`
-requires for any other path to disposal.
+The transport is the swift-sdk's own `StatefulHTTPServerTransport` (MCP 2025-03-26: one `/mcp`
+endpoint; POST with SSE responses; GET for a standalone stream; `Mcp-Session-Id`; `DELETE` ends a
+session), with a SwiftNIO listener, `HTTPApp`, adapted from the SDK's reference. A per-session
+`onClose` hook (on `DELETE`, idle timeout or quit) calls `engine.shutdown(reason:)`, which closes that
+conversation's window, as `R-APP-7` requires.
 
-`R-MCP-20` One `Server` (with the `converse` tool registered), one `ConverseSessionEngine`, and one
-`InProcessSessionGateway` — and therefore one conversation window — **MUST** exist per
-`Mcp-Session-Id`. Multiple HTTP clients, or one client opening multiple sessions, open multiple
-independent windows; there is no enforced cap today (a documented gap, not a decision).
+`R-MCP-20` One `Server`, `ConverseSessionEngine` and `InProcessSessionGateway` — so one window —
+**MUST** exist per `Mcp-Session-Id`. There's no cap on sessions (a known gap).
 
-**Binding and enablement (`R-APP-8`).** The listener **MUST** bind `127.0.0.1` only, never
-`0.0.0.0`, hardcoded rather than configurable. It does not start automatically unless
-`VOICECHAT_MCP_HTTP_PORT` is set at launch (which also selects the port); otherwise, the menu bar
-carries a checkable **"MCP Server (port …)"** item ([§10](#10-menu-bar-applet)) that starts and
-stops it on demand, defaulting to port 8765. A bind failure (e.g. the port already taken) is reported
-with an alert when triggered by that menu item, and logged (not shown) when it happens during
-automatic startup — the same asymmetry `R-ARCH-3` draws between VCP (fatal if it can't start) and
-this transport (secondary; VCP already succeeded).
+**Binding and enablement (`R-APP-8`).** The listener **MUST** bind `127.0.0.1` only (hardcoded). It
+starts at launch only when `VOICECHAT_MCP_HTTP_PORT` is set (which also picks the port); otherwise the
+menu bar's checkable **"MCP Server (port …)"** item ([§10](#10-menu-bar-applet)) starts and stops it,
+on port 8765 by default. A bind failure shows an alert when started from the menu, and is only logged
+at automatic startup.
 
-`R-SEC-8` A TCP listener on loopback, even with the SDK's built-in Origin/Host validation
-(`OriginValidator.localhost()`, applied by default), is reachable by **any local user account** on
-the machine, not only the one that launched VoiceChat — a real downgrade from VCP's `0600` socket in
-a `0700` directory (`R-SEC-3`). This is accepted as the inherent cost of a TCP-based transport at
-all, stated plainly rather than engineered around; it is the reason this transport is opt-in. A
-shared-secret validator (the SDK ships `BearerTokenValidator` as a ready template) is a natural
-future addition, not built here.
+`R-SEC-8` Even with the SDK's Origin/Host validation (`OriginValidator.localhost()`), a loopback TCP
+port is reachable by **any local user account**, weaker than VCP's `0600` socket (`R-SEC-3`). That's
+accepted and is why the transport is opt-in; a shared-secret validator (`BearerTokenValidator`) is a
+possible future addition.
 
-**Known open issue.** A bare `converse()` call over this transport has been observed to return
-`status: "ended"` immediately, with no window ever opening — reproduced even against a freshly
-issued `Mcp-Session-Id` with no prior turns, isolating it from the reconnect-reuse behaviour
-`R-MCP-17` is specifically designed to handle. The cause is not yet identified. Until it is, treat
-the HTTP transport as unverified for fresh sessions despite the passing end-to-end test recorded in
-[§15.4](#154-manual-acceptance-checklist) — that test evidently does not cover whatever this
-condition depends on.
+**Known issue.** A bare `converse()` over HTTP has occasionally returned `status: "ended"` at once
+without opening a window, even on a fresh `Mcp-Session-Id`. The cause is not identified.
 
 ---
 
 ## 5. Session and turn state machine
 
-This section is the authority for every enable/disable, every microphone transition, and every
-window change. Implementations **MUST** derive UI state from it rather than setting controls
-ad hoc.
+This state machine is the authority for every control, microphone transition and window change; UI
+state **MUST** be derived from it, never set ad hoc.
 
 ### 5.1 States
 
@@ -740,11 +647,9 @@ ad hoc.
 | `Ended` | Terminal. Window shows a closing banner, then closes. |
 
 `R-FSM-1` `Responding.Auto` and `Responding.Manual` differ **only** in what happens when speech
-finishes. This latch is the mechanism behind the v1.0 rule that, once stopped, the response stays
-on screen however many times it is replayed.
+finishes: once stopped, a response stays however often it is replayed.
 
-`R-FSM-2` The manual latch **MUST** reset at every turn boundary. Each turn begins in
-`Responding.Auto` when its response arrives, regardless of what happened in the previous turn.
+`R-FSM-2` The manual latch **MUST** reset at every turn: each response starts in `Responding.Auto`.
 
 ### 5.2 Transition table
 
@@ -767,13 +672,10 @@ on screen however many times it is replayed.
 | 15 | any non-terminal | `session.close` from peer | `Ended` | stop | — | stop | — |
 | 16 | any non-terminal | VCP peer disconnect | `Ended` | stop | — | stop | — |
 
-Row 8 implements the v1.0 sentence *"If the TTS runs out of text to read, then switch to next prompt
-composition turn."* Row 11 implements *"Even if the full response is read, the response mode
-stays."* Row 13 implements *"In manual mode only 'Got it' finishes the response."*
+Rows 8, 11 and 13 implement v1.0's "switch to the next prompt when the TTS runs out", "the response
+mode stays", and "in manual mode only 'Got it' finishes the response".
 
 ### 5.3 Invariants
-
-Each of these is directly assertable in tests.
 
 | | Invariant |
 |---|---|
@@ -791,10 +693,10 @@ Each of these is directly assertable in tests.
 | Situation | Required behaviour |
 |---|---|
 | Response arrives after the window was closed | Discarded; the in-flight `turn.await` has already resolved `ended`. No window is reopened. |
-| Response is empty or whitespace only | Row 7: no TTS, no `Responding` state, advance directly to the next turn. Avoids a dead-end state with nothing to read and nothing to acknowledge. |
+| Response is empty or whitespace only | Row 7: no TTS, no `Responding` state; straight to the next turn. |
 | **Send** pressed in the same runloop turn as an incoming `session.ended` | `Ended` wins. The prompt is discarded and the person is shown the closing banner. |
 | Person edits the response pane, then presses `Play` | Speech is rebuilt from the **current** pane contents ([§9.2](#92-deriving-spoken-text)). |
-| TTS fails to start (no voice installed, audio device lost) | Treated as `didFinish`: row 8 or 11 applies, and a warning chip appears in the right footer. A broken speaker must never strand the conversation. |
+| TTS fails to start (no voice, audio device lost, Talking Head refuses) | Treated as `didFinish` (row 8 or 11), with a warning chip. A broken speaker never strands the conversation. |
 | Microphone permission denied | The session runs fully; the mic toggle shows a denied state and the footer offers a System Settings link. Typing and all buttons work. |
 | Second host opens a session while one is active | Allowed. A second window opens. Only the frontmost session may hold the microphone ([§8.7](#87-device-arbitration)). |
 | `turn_out_of_sync` observed by the server | The tool call fails with a message telling the model the conversation state moved on and it should stop; the window is left untouched and usable. |
@@ -839,9 +741,8 @@ Each of these is directly assertable in tests.
 | Identity badge | `<model> · <host>` (either alone if only one is known), shown in the header's trailing area. The model is optional and supplied by the caller on each `converse` call. The host is the MCP client's own name from its `initialize` request (`clientInfo.title` if sent, else a friendly name for known clients — `claude-code` → Claude Code, `claude-ai` → Claude Desktop — else `clientInfo.name` verbatim), so it never depends on the model. The bottom bar reads `Connected to <host> — <project> · <model>`. The badge is hidden when neither is known. |
 | Background | `NSGlassEffectView` (regular style) under a wash (black in dark, white in light) whose strength the header slider sets; 24 pt corner radius; cyan hairline rim |
 
-`R-UI-1` The header's subtitle line **MUST** track session state, as the equivalent of the reference
-implementation retitling its window (`NSWindow.title` still carries the title for Mission Control and
-accessibility):
+`R-UI-1` The header's subtitle line **MUST** track session state (`NSWindow.title` keeps the title for
+Mission Control and accessibility):
 
 | State | Subtitle |
 |---|---|
@@ -852,25 +753,20 @@ accessibility):
 | `Responding.Manual` | `Paused · turn 3` |
 | `Ended` | `Conversation ended` |
 
-`R-UI-2` The header carries, trailing, a theme control of three icon buttons — **Default** (half-filled
-circle; follows the system appearance), **Light** (sun), **Dark** (moon) — persisted in `UserDefaults`
-(`VoiceChatTheme`, default `system`) and applied to every conversation window through `NSWindow.appearance`.
-Next to it sits a transparency slider (0 = as see-through as the glass gets, 1 =
-nearly solid; default 0.35). It scales only the backdrops — the window wash and the editor-card fill — never
-text or controls. The value is shared by all conversation windows and persisted in `UserDefaults`
-(`VoiceChatGlassOpacity`). The header also carries, leading, a close button (same effect as closing a titled window: a live
-session ends with `window_closed`), and, between the title and the theme control, the identity badge
-above — purely decorative text, hidden when absent. It **MUST NOT** carry Send, Play, Stop, or Got it! —
-those belong to their panes. The speech-output popover and settings button of the earlier toolbar design are not
-implemented.
+`R-UI-2` The header carries:
+- leading, a close button (a live session ends with `window_closed`);
+- the identity badge (hidden when empty);
+- trailing, a theme control — **Default** (follows the system), **Light**, **Dark** — (`VoiceChatTheme`,
+  default `system`), and a transparency slider (0 see-through … 1 nearly solid, default 0.35) that scales
+  only the window wash and editor-card fill (`VoiceChatGlassOpacity`). Both apply to every window.
 
-Beside the pin sits a layout button (⌥⌘L) that arranges the two panes side by side or stacked, prompt
-above response. Its icon shows the layout a click switches to, not the current one, which is already
-visible. Between the panes is a divider the person drags to set the proportion; double-clicking it
-splits the space evenly. It never lets a pane shrink below its minimum (420 pt wide side by side, 180 pt
-tall stacked). The layout and a separate proportion for each layout are shared by all conversation windows
-and persisted in `UserDefaults` (`VoiceChatPaneLayout`, default side by side; `VoiceChatSideBySideSplit`
-and `VoiceChatStackedSplit`, default 0.5).
+It **MUST NOT** carry Send, Play, Stop or Got it!, which belong to their panes.
+
+A layout button (⌥⌘L), beside the pin, arranges the panes side by side or stacked (prompt above
+response); its icon shows the layout a click switches to. The divider between the panes sets their
+proportion (double-click splits evenly), never shrinking a pane below 420 pt wide (side by side) or 180
+pt tall (stacked). Layout and per-layout proportion are shared and persisted (`VoiceChatPaneLayout`,
+default side by side; `VoiceChatSideBySideSplit`, `VoiceChatStackedSplit`, default 0.5).
 
 `R-UI-3` The window **MUST** be resizable to the minimum size without clipping any control, without
 horizontal scrolling of the layout, and without the footer bars wrapping. At minimum width each pane
@@ -894,8 +790,8 @@ Both panes share one structure:
   └────────────────────────────────────────┘
 ```
 
-`R-UI-4` The active pane **MUST** be indicated by the focus ring described above — the native
-reading of the reference implementation's purple glow. The inactive pane shows only its 1 pt border.
+`R-UI-4` The active pane **MUST** be indicated by the focus ring above; the inactive pane shows only
+its 1 pt border.
 Under **Increase Contrast** the ring thickens to 3 pt and the shadow is dropped.
 
 `R-UI-5` Both panes **MUST** grow with the window. Neither may have a fixed height. The editor card
@@ -931,7 +827,8 @@ status text reads `Nothing to send yet`.
 
 Header status chip: `Waiting`, `Speaking`, `Paused`, `Read`.
 
-Placeholder when empty: `Waiting for the response…` while `Submitted`, otherwise `The response will appear here.` The pane is editable only while `Responding`; before a response arrives there is nothing to edit, and text typed there would be neither sent nor played.
+Placeholder when empty: `Waiting for the response…` while `Submitted`, otherwise `The response will
+appear here.` The pane is editable only while `Responding`.
 
 Footer, leading to trailing:
 
@@ -964,17 +861,16 @@ Expanded content: a list of committed turns, one row each —
 
 | Behaviour | Requirement |
 |---|---|
-| `R-UI-11` | Selecting a past turn loads its prompt and response into the two panes and shows a prominent `Return to current turn` bar across the top of the split view. The **response** pane is always read-only while peeking — what was already said is immutable. The **prompt** pane follows its normal per-state rule ([§6.6](#66-control-enablement-matrix)): editable in `Composing`, otherwise not. Peeking does not itself restrict dictation, the mic toggle, or the mode control (R-UI-27). |
-| `R-UI-12` | Returning restores the live turn's content exactly, including unsent draft text and cursor position — **unless** the peeked prompt was edited and sent (R-UI-27), in which case the send supersedes the draft and there is nothing to return to restore. |
+| `R-UI-11` | Selecting a past turn loads its prompt and response into the panes and shows a `Return to current turn` bar. The response pane is read-only while peeking; the prompt pane follows its normal rule ([§6.6](#66-control-enablement-matrix)), and dictation, the mic and the mode control are unaffected (R-UI-27). |
+| `R-UI-12` | Returning restores the live turn exactly, including the unsent draft and cursor — unless the peeked prompt was sent (R-UI-27), which supersedes the draft. |
 | `R-UI-13` | History covers the **current conversation only**. It is held in memory and discarded when the session ends. |
 | `R-UI-14` | **Export…** writes a Markdown transcript to a user-chosen location via `NSSavePanel`. This is the only path by which conversation content reaches disk. |
-| `R-UI-29` | When the MCP client declares the `roots` capability, the server asks it for its roots (`roots/list`) and forwards them to the window, refreshing on `notifications/roots/list_changed`. The bottom bar then shows a folder chip with the count, opening a popover that lists each root's name and path, each revealable in the Finder. The fetch is off the conversation's path and abandoned after 5 s, so a host that answers slowly or not at all never delays a turn; a host reporting no roots, or not supporting them, shows no chip. |
-| `R-UI-27` | A past prompt is not a museum piece: while it is loaded and the session is in `Composing`, it can be edited and sent like any other prompt, producing a new turn. This is deliberately not "read-only history" — the only immutable half of a past turn is the response that was actually said. |
+| `R-UI-29` | When the MCP client supports `roots`, the server fetches them (`roots/list`, refreshed on `notifications/roots/list_changed`) and the bottom bar shows a folder chip with the count; its popover lists each root, revealable in the Finder. The fetch never delays a turn (abandoned after 5 s); no roots, no chip. |
+| `R-UI-27` | A loaded past prompt can be edited and sent in `Composing` like any prompt, making a new turn. Only the response that was said is immutable. |
 
 ### 6.6 Control enablement matrix
 
-`R-UI-15` Control state **MUST** be derived from this table. It makes the greyed-out states visible
-in the reference screenshots normative.
+`R-UI-15` Control state **MUST** be derived from this table.
 
 | Control | `Composing` | `Submitted` | `Responding.Auto` | `Responding.Manual` (idle) | `Responding.Manual` (speaking) | `Ended` |
 |---|---|---|---|---|---|---|
@@ -989,9 +885,6 @@ in the reference screenshots normative.
 | History strip | enabled | enabled | enabled | enabled | enabled | enabled |
 
 \* disabled when the mic is off or unavailable.  † disabled when the pane is empty.
-
-This matches **Ref-A** (Send prominent, Play/Stop/Got it! inert) and **Ref-B** (mic controls and
-Send greyed, Stop and Got it! live, Play greyed while speaking).
 
 ### 6.7 Metrics, typography, and colour
 
@@ -1012,8 +905,7 @@ Send greyed, Stop and Got it! live, Play greyed while speaking).
 `R-UI-16` All colours **MUST** come from semantic `NSColor` values (`labelColor`,
 `secondaryLabelColor`, `tertiaryLabelColor`, `systemCyan`, `systemRed`), from black/white at a stated
 opacity, or from materials. No literal RGB values. The wash and line tones flip with the effective
-appearance (light or dark), and the highlight is `systemCyan` (deepened for text on light glass) rather
-than the user's accent colour — the holographic look is the point of the shell.
+appearance, and the highlight is `systemCyan` (deepened on light glass), not the accent colour.
 
 `R-UI-17` Animations **MUST** honour `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion`.
 Under Reduce Motion the level ring, the level glyph, and the empty-send shake are replaced by static
@@ -1037,27 +929,21 @@ equivalents.
 | ⌘W | **Close** the window | `Ended` only — the app installs no `File`/`Window` menu, so ⌘W does not close a live window; use ⌥⌘E or the traffic light to end one |
 | ⌘, | Settings | App-wide |
 
-`R-UI-19` **End conversation** ends the session immediately, with no confirmation, regardless of
-unsent text or in-progress speech — a confirmation on every close was judged to be more friction than
-the loss it would prevent, since the conversation is still visible in the history strip and, if the
-prompt is worth keeping, can be resent from there (`R-UI-27`).
+`R-UI-19` **End conversation** ends the session immediately, with no confirmation, whatever is unsent
+or speaking.
 
 ### 6.9 Terminal and error presentation
 
 `R-UI-20` On entering `Ended`, the window **MUST** show a non-modal banner across the top of the
 split view naming the reason — `Conversation ended.`, `The assistant cancelled this conversation.`,
 `VoiceChat lost contact with the assistant.` — dim both panes to read-only, and close automatically
-after 4 s. The bottom bar's **End conversation** button is replaced by an always-enabled **Close**
-button for the rest of the window's life, so the window can be dismissed on demand regardless of the
-auto-close timer — this, not a button embedded in the banner itself, is where dismissal lives.
-Auto-close is suppressed while the history strip is expanded, so a transcript can still be exported;
-**Close** remains available throughout, since a suppressed timer must never be the only way out
+after 4 s. **End conversation** becomes an always-enabled **Close** button. Auto-close is suppressed
+while the history strip is expanded (so the transcript can be exported); **Close** always works
 (`R-APP-7`).
 
 `R-UI-21` Recoverable problems (mic denied, no voice installed, recogniser unavailable) **MUST**
 appear as an inline row inside the affected pane's footer with a one-line explanation and a single
-action button. They **MUST NOT** use modal alerts, which would block a conversation that is still
-perfectly usable.
+action button, never a modal alert.
 
 ### 6.10 Accessibility
 
@@ -1065,7 +951,7 @@ perfectly usable.
 |---|---|
 | `R-UI-22` | Every control carries an accessibility label and, where its meaning is state-dependent, a value. The two text views are labelled `Prompt` and `Response`. |
 | `R-UI-23` | State changes post `NSAccessibilityPriorityAnnouncement` announcements: "Listening", "Sending", "Speaking", "Response finished", "Conversation ended". |
-| `R-UI-24` | When VoiceOver is running, automatic playback of responses **MUST** default to off — VoiceOver and `AVSpeechSynthesizer` speaking simultaneously is unusable. The first time this is applied the person is told once, in the right pane footer, with a control to override. With auto-play off, row 6 of [§5.2](#52-transition-table) enters `Responding.Manual` directly. |
+| `R-UI-24` | While VoiceOver runs, automatic playback **MUST** default to off (the two voices would talk over each other); row 6 of [§5.2](#52-transition-table) then enters `Responding.Manual` directly. The person is told once, with a control to override. |
 | `R-UI-25` | Full keyboard navigation between panes, footers, history, and the bottom bar via Tab / ⇧Tab, with a visible focus ring on every stop. |
 | `R-UI-26` | All text honours the system text size where the platform supports it, and no control has a fixed height that would clip enlarged text. |
 
@@ -1076,8 +962,7 @@ perfectly usable.
 ### 7.1 Rich text in both panes
 
 `R-TXT-1` Both panes **MUST** be `NSTextView` instances using TextKit 2 (`NSTextLayoutManager`) over
-an `NSTextStorage`, matching the API bindings already named in `Commands and Dictation.md`, and
-**MUST** hold attributed text rather than plain strings. `Bold that`, `Italicise that`, and
+an `NSTextStorage`, and **MUST** hold attributed text rather than plain strings. `Bold that`, `Italicise that`, and
 `Underline that` (C4) operate on real attributes.
 
 ### 7.2 Inbound: Markdown → attributed
@@ -1098,9 +983,8 @@ intents to concrete attributes:
 | `link` | `linkColor`, underlined, URL in the `.link` attribute |
 | `thematicBreak` | 1 pt `separatorColor` rule |
 
-`R-TXT-3` The original Markdown **MUST** be retained alongside the attributed string as
-`sourceMarkdown`, for export and for the raw-text view. It is not re-derived from the attributed
-string.
+`R-TXT-3` The original Markdown **MUST** be kept alongside as `sourceMarkdown`, for export; it is
+never re-derived from the attributed string.
 
 `R-TXT-4` Malformed Markdown **MUST NOT** fail the turn. On a conversion error the raw text is
 displayed verbatim as plain body text and a debug-level log entry is written.
@@ -1111,23 +995,17 @@ displayed verbatim as plain body text and a debug-level log entry is written.
 supporting a deliberately small subset: bold, italic, underline (as `<u>`), inline code, and fenced
 code blocks. Everything else is emitted as plain text.
 
-`R-TXT-6` Text that carries no formatting attributes **MUST** serialise byte-identically to what was
-typed or dictated. A person who never uses a formatting command never sees Markdown syntax appear in
-what they send.
+`R-TXT-6` Text with no formatting **MUST** serialise byte-identically to what was typed or dictated.
 
-`R-TXT-7` Literal Markdown metacharacters typed by the person (`*`, `_`, `` ` ``, `#` at line start)
-**MUST NOT** be escaped. Someone who types `2 * 3 * 4` means exactly that, and models handle the
-ambiguity better than an escaping scheme would.
+`R-TXT-7` Markdown metacharacters the person typed (`*`, `_`, `` ` ``, `#` at line start) **MUST NOT**
+be escaped: `2 * 3 * 4` means exactly that.
 
 ### 7.4 Right-pane edits
 
-`R-TXT-8` Edits to the response pane are **local only**. They change what speech reads
-([§9.2](#92-deriving-spoken-text)) and what the transcript exports, and are **never** sent back to
-the model. Because both panes are editable, this is stated explicitly rather than left to be
-inferred.
+`R-TXT-8` Edits to the response pane are **local only**: they change what speech reads
+([§9.2](#92-deriving-spoken-text)) and what is exported, and are **never** sent to the model.
 
-`R-TXT-9` The history strip records the response **as received**, not as edited, so the transcript
-reflects what the model actually said. An edited response is marked `(edited)` in the strip.
+`R-TXT-9` The history strip records the response **as received**, marked `(edited)` if it was edited.
 
 ---
 
@@ -1157,8 +1035,8 @@ installation path; while a download is in progress the mic toggle shows `Prepari
 disabled.
 
 `R-STT-3` The engine **MUST** sit behind a `SpeechRecognitionEngine` protocol in `VoiceChatKit`,
-with a `MockSpeechEngine` that emits scripted volatile and finalised results. This exists so the
-entire command vocabulary is testable without a microphone (goal G6), not for OS portability.
+with a `MockSpeechEngine` that emits scripted results, so the whole vocabulary is testable without a
+microphone (goal G6).
 
 `R-STT-4` Audio-route changes (headphones connected or removed, default device changed) **MUST** be
 handled by tearing down and rebuilding the tap, preserving the current mode and any pending text.
@@ -1189,15 +1067,12 @@ Two modes, exactly as v1.0 describes:
 
 ### 8.4 Mode indication
 
-The current mode is visible in three places simultaneously: the segmented control, the left header
-chip, and the window subtitle. Mode is the single most consequential piece of hidden state in the
-app — saying an editing command while in Dictation mode types it as prose — so it is deliberately
-over-indicated.
+The mode shows in three places at once — the segmented control, the left header chip and the window
+subtitle — because a command said in the wrong mode is typed as prose.
 
 ### 8.5 Command dispatch contract
 
-`Commands and Dictation.md` enumerates the vocabulary. This section defines how it is applied. The
-two together are the complete specification; neither is sufficient alone.
+`Commands and Dictation.md` lists the vocabulary; this section defines how it is applied.
 
 **Normalisation.** A finalised transcript is normalised before matching:
 lowercase; trim; collapse internal whitespace; strip trailing `.`, `,`, `!`, `?`; map spelled
@@ -1231,9 +1106,7 @@ before parameterised ones — so `Select next word` never shadows `Select word`,
 
 **Unmatched utterances.** `R-STT-11` In Command Mode an unmatched utterance **MUST NOT** be inserted
 as text. The dispatcher shows a transient toast — `Unrecognised command: "…"` — for 2 s in the
-affected pane and, if enabled, plays the system error sound. Silently typing an unrecognised command
-into the document defeats the entire purpose of having a command mode, and is the failure people
-find hardest to undo.
+affected pane and, if enabled, plays the system error sound.
 
 **Undo.** `R-STT-15` Every document mutation, from both modes, **MUST** be registered with the text
 view's `UndoManager` as a single coalescible action named after the command, so that `Undo that` and
@@ -1245,34 +1118,20 @@ apply to the focused pane, which is determined by state per `R-FSM-6`.
 
 **Availability.** `R-STT-17` A command that is unavailable in the current state — `Send prompt`
 outside `Composing`, `Play` while already speaking — **MUST** be reported as
-`Not available right now`, distinctly from `Unrecognised command`. Conflating the two makes a
-correctly-spoken command look like a recognition failure.
+`Not available right now`, distinct from `Unrecognised command`.
 
 **Coverage.** `R-STT-18` Every phrase in `Commands and Dictation.md` **MUST** have an implementation
-and at least one test ([§15.2](#152-required-tests)). Adding a phrase to that document without an
-implementation is a defect in this system, not a gap in the document.
+and at least one test ([§15.2](#152-required-tests)).
 
-*Implementation notes (P4).* `Commands and Dictation.md` leaves a handful of behaviours
-underspecified; these are the resolutions, chosen for consistency and confirmed by test:
+*Resolutions of what `Commands and Dictation.md` leaves open* (confirmed by tests):
 
-- **`line`**, wherever it names a unit (`Select line`, `Delete previous line`, …), means the current
-  *logical* line — the extent between `\n` boundaries — not the visually wrapped line a real text
-  view would show. The wrapped extent depends on window width, which has no meaning in the headless
-  `TextDocument` double that backs the per-phrase tests (`R-STT-18`), so the logical line is the one
-  definition that is both real and testable.
-- **`Select that`** is the one selection command that may act with nothing currently selected: it
-  falls back to the word nearest the caret, so a person can create an initial selection by voice
-  before using `that` in a later command. Every other `that` target (`Delete that`, `Bold that`,
-  `Cut that`, `Correct that`, …) requires an existing, non-empty selection and reports
-  `Nothing selected` otherwise — expanding what "that" means to fix an editing or deletion command
-  onto an unintended word would be a correctness hazard, not a convenience.
-- **`Capitalise` / `Italicise`** also accept the American spellings `Capitalize` / `Italicize` as
-  synonyms; `Commands and Dictation.md` is not amended, since the recognised vocabulary is a superset
-  of what it documents, never a departure from it.
-- **`Replace <phrase> with <phrase>`** splits its utterance on the *last* standalone occurrence of
-  the word `with` (as specified); `Insert <phrase> after/before <phrase>` applies the same
-  last-occurrence rule for `after`/`before`, by extension, since the document does not specify a
-  split rule for this command family and consistency was preferred over an arbitrary alternative.
+- **`line`** as a unit means the *logical* line (between `\n`s), not the wrapped line, which depends
+  on window width and can't be tested headlessly.
+- **`Select that`** alone may act with nothing selected, selecting the word nearest the caret. Every
+  other `that` command needs a non-empty selection and reports `Nothing selected` otherwise.
+- **`Capitalize` / `Italicize`** are accepted as synonyms of `Capitalise` / `Italicise`.
+- **`Replace <phrase> with <phrase>`** splits on the last standalone `with`; `Insert <phrase>
+  after/before <phrase>` likewise on the last `after`/`before`.
 
 ### 8.6 Custom vocabulary
 
@@ -1285,10 +1144,8 @@ active transcriber, taking effect on the next recogniser start at the latest.
 guidance for contextual phrase lists. Phrases are kept short — one or two words. The list is
 editable in Settings ([§11](#11-settings)).
 
-*Binding note (C3).* `Commands and Dictation.md` names
-`SFVocabulary.shared().setCustomVocabularyStrings(…, for: .userContext)`. That call does not exist in
-the Speech framework; the signature belongs to SiriKit's `INVocabulary`. The macOS 26 equivalent was
-confirmed against the SDK and **MUST** be used instead:
+*Binding note (C3).* Instead of the non-existent `SFVocabulary` call named in `Commands and
+Dictation.md`, the vocabulary **MUST** be applied as:
 
 ```swift
 let context = AnalysisContext()
@@ -1296,13 +1153,7 @@ context.contextualStrings[.general] = phrases     // ≤ 100, short
 try await analyzer.setContext(context)            // or pass via init(inputSequence:…)
 ```
 
-The `SFSpeechRecognizer`-generation equivalent, for reference, is
-`SFSpeechRecognitionRequest.contextualStrings` (or `SFSpeechLanguageModel` for a trained model).
-
-`R-STT-21` *Retired.* This requirement described a post-recognition fuzzy-correction fallback for
-the case where the transcriber exposed no contextual-phrase input. That case does not arise:
-`AnalysisContext.contextualStrings` exists. Per [§0.1](#01-requirement-language) the identifier is
-retired, not reused.
+`R-STT-21` *Retired* (a fallback for a transcriber without contextual phrases, which doesn't arise).
 
 ### 8.7 Device arbitration
 
@@ -1319,8 +1170,7 @@ returns to its off state with an explanatory status. The conversation remains fu
 `NSSpeechRecognitionUsageDescription`, both written in terms of what the person gets, not what the
 app does.
 
-`R-STT-25` Authorisation **MUST** be requested at first microphone activation, never at launch. A
-permission prompt before the person has asked for anything is both hostile and likely to be denied.
+`R-STT-25` Authorisation **MUST** be requested at first microphone activation, never at launch.
 
 `R-STT-26` Denial **MUST NOT** degrade anything other than speech. The window, typing, all buttons,
 and the full conversation loop keep working; the footer shows one line and an **Open System
@@ -1338,8 +1188,7 @@ voice, no third-party engine. The one exception is Talking Head, which the perso
 
 `R-TTS-2` The response **MUST** be split into sentence-level utterances
 (`String.enumerateSubstrings(in:options:[.bySentences, .localized])`) and enqueued in order, rather
-than spoken as one utterance. This gives immediate response to **Stop**, accurate progress
-reporting, and per-sentence highlighting.
+than spoken as one utterance, for an immediate **Stop** and per-sentence highlighting.
 
 `R-TTS-3` Voice, rate, pitch, and volume come from Settings. Personal Voice is offered when
 `AVSpeechSynthesizer.requestPersonalVoiceAuthorization` grants access; otherwise the picker lists
@@ -1367,8 +1216,8 @@ Derivation rules:
 
 `R-TTS-7` The builder **MUST** produce, alongside the utterances, a segment table mapping each
 utterance index to the `NSRange` of the pane text it came from, so `willSpeakRangeOfSpeechString`
-can be translated into a document range for highlighting (`R-UI-8`). Skipped content occupies a
-segment with no utterance, so highlighting does not drift out of alignment over a long response.
+can be translated into a document range for highlighting (`R-UI-8`). Skipped content gets a segment
+with no utterance, so the highlight never drifts.
 
 `R-TTS-8` A response longer than 20 000 characters is truncated for speech at the last sentence
 boundary before the limit, and a final utterance says `Response truncated for reading.` The full
@@ -1377,26 +1226,19 @@ text remains visible in the pane.
 ### 9.3 Microphone interlock
 
 `R-TTS-4` The recogniser **MUST** be stopped and the input tap removed **before** the first
-utterance is enqueued, and **MUST NOT** be restarted until `didFinish` or `didCancel` is received.
-This is the resolution of conflict **C1** and the mechanism that prevents the synthesised response
-from being transcribed as the next prompt.
+utterance is enqueued, and **MUST NOT** be restarted until `didFinish` or `didCancel` (C1), so the
+reply is never transcribed as the next prompt.
 
 `R-TTS-5` On `didFinish` or `didCancel` the recogniser restarts in:
 
 - **Command** mode, if the state is `Responding.Manual`;
 - **Dictation** mode, if the state has advanced to `Composing`.
 
-This is the reading of `Play` "locks voice to Command Mode" from `Commands and Dictation.md`: the
-mode is what playback returns to.
-
 `R-TTS-9` The interlock **MUST** be implemented as a single owner of the audio session — a
-`AudioRouteCoordinator` through which both controllers acquire and release the device — so that the
-invariant cannot be broken by a missed callback. Re-entrancy (a second `Play` while stopping) must
-not leave the tap installed.
+`AudioRouteCoordinator` through which both controllers acquire and release the device — so a missed
+callback or a second `Play` while stopping can't leave the tap installed.
 
 ### 9.4 Auto and manual modes
-
-Restating the v1.0 rules as they appear in [§5.2](#52-transition-table):
 
 | | |
 |---|---|
@@ -1407,34 +1249,62 @@ Restating the v1.0 rules as they appear in [§5.2](#52-transition-table):
 | `R-TTS-14` | **Got it!** is the only way out of `Responding.Manual`. |
 
 `R-TTS-15` **Play** in `Responding.Manual` starts from the beginning of the response, unless there
-is a non-empty selection, in which case it reads the selection only. Resuming mid-response is not
-offered; it is ambiguous after an edit, and restarting is cheap.
+is a non-empty selection, in which case it reads the selection only. There is no resuming midway.
 
 ### 9.5 Talking Head
 
-`R-TTS-16` When Talking Head's `th` command is installed, the response footer **MUST** offer a toggle,
-next to Mute, that reads replies through `th` instead of `AVSpeechSynthesizer`. `th` is looked up
-at `~/.local/bin`, `/usr/local/bin`, `/opt/homebrew/bin` and inside
-`/Applications/TalkingHead.app`, and a candidate counts only if it resolves into
-`TalkingHead.app`. When `th` isn't found, the toggle isn't shown. The setting is shared by every
-window and remembered.
+`R-TTS-16` When Talking Head's `th` is installed (found in `~/.local/bin`, `/usr/local/bin`,
+`/opt/homebrew/bin` or `/Applications/TalkingHead.app`, and resolving into `TalkingHead.app`), the
+response footer **MUST** offer a toggle, next to Mute, that reads replies through Talking Head instead
+of `AVSpeechSynthesizer`, with a male/female picker (default male). Both are shared by every window
+and remembered, and apply from the next reading.
 
-- The text sent is the spoken text of §9.2 (or of the selection, per `R-TTS-15`), piped to `th` on
-  standard input. `th` is run with `--always-on-top`, so the face isn't hidden behind other
-  windows, and with `-v male` or `-v female` from a picker next to the toggle (default male). The
-  picker is shared and remembered like the toggle.
-- In a debate, each seat has its own character, and the seats alternate. The first seat starts
-  with the shared picker's choice, and the next seat takes the opposite. Choosing a character in
-  one seat's picker sets the other seat to the opposite. A debate's choice is held by its
-  `DebateCoordinator` and never written back to the shared setting.
-- The reading lasts as long as the `th` process does. Its exit is the natural finish that
-  `R-TTS-11` and `R-TTS-13` act on. **Stop** terminates the process. The reply pane shows no
-  sentence highlight, because `th` reports no progress. Talking Head's speech bubble, opened by
-  clicking the face, highlights each word as it's spoken instead.
-- Mute means silence. While muted, `th` isn't launched, and the built-in synthesiser reads silently
-  as usual. Muting while `th` is speaking terminates it, and the reading counts as finished.
-- Toggling applies from the next reading. Closing the window or quitting the app terminates a
-  running `th`.
+- The text read is the spoken text of §9.2 (or the selection, `R-TTS-15`).
+- In a debate each seat has its own character: the first takes the picker's choice, the other the
+  opposite, and choosing in one seat sets the other to the opposite. The debate's `DebateCoordinator`
+  holds the choice, never the shared setting.
+- The reply pane shows no sentence highlight (Talking Head reports no progress); Talking Head's own
+  speech bubble highlights each word.
+- Mute means silence: while muted Talking Head isn't used, and muting mid-reading ends it as a finish.
+- Closing the window or quitting ends a reading.
+
+`R-TTS-19` **How a reading is sent.** When Talking Head's spooler socket answers
+(`~/Library/Application Support/TalkingHead/speech.sock`, or `TALKINGHEAD_SPOOLER_SOCKET`; owned by the
+same user), the reading goes there as `{"type":"speak","text","voice","alwaysOnTop":true}` on its own
+connection, through `VoiceChatKit.TalkingHeadSpooler` (self-contained; no code shared with Talking
+Head). With no socket, or no reply within 300 ms, it falls back to `th --always-on-top -v <voice>` with
+the text on standard input; the process's exit is the reading's natural finish, and **Stop**
+terminates it. (A late spooler reply finds its connection closed, so Talking Head drops that copy.)
+
+`R-TTS-20` **Spooler events:** `finished` → the natural finish (what `R-TTS-11` and `R-TTS-13` act
+on); `stopped` not asked for by VoiceChat (Talking Head's own Stop, an agent's) → the natural finish;
+`error` → the natural finish plus the warning chip with its message; the connection ending without a
+result (Talking Head quit) → the natural finish. VoiceChat's **Stop** closes the connection, which
+takes the speech back, as a cancellation.
+
+`R-TTS-17` **Presence.** While Talking Head is on and not muted, its face **MUST** follow the §5 state
+machine between readings, as a `presence` message on the spooler socket. Presence is derived only
+from the machine, after every transition (`ConversationModel.onMachineChanged`), and on changes to
+mute, the toggle and the character; only changes are sent.
+
+| State (§5.1) | Presence |
+|---|---|
+| `Idle`, `Ended` | none |
+| `Composing` | listening |
+| `Submitted` | thinking |
+| `Responding.Auto` | none (the reading is the face) |
+| `Responding.Manual`, speaking / not speaking | none / listening |
+| Talking Head off, or muted | none |
+
+`R-TTS-18` Each finalised dictation phrase while `Composing` **MUST** send a one-shot nod
+(`"pulse":"nod"`), at most once per 600 ms. Interim results never nod.
+
+`R-TTS-21` Each window holds one presence connection, opened at the first presence other than none,
+kept (sending `none`) through the responding states, and closed when the conversation ends, Talking
+Head is turned off or muted, or the window closes, which lets the face go. If presence isn't
+acknowledged within 300 ms (an older Talking Head answers `error`), the window sends no more presence
+and readings work as before. Each debate seat holds its own, with its own character. The microphone
+interlock (§9.3) is unchanged.
 
 ---
 
@@ -1446,73 +1316,47 @@ menu, presenting a single `NSStatusItem`.
 Icon: `waveform.circle`, switching to `waveform.circle.fill` while any session is open, with a
 subtle pulse while any session is speaking (suppressed under Reduce Motion).
 
-Menu, as designed:
+The menu:
 
 ```
-  VoiceChat 2.0
+  VoiceChat 0.0.13
   ─────────────────────────────────
   Idle  /  2 conversations open
-    ▸ claude-code — turn 3 · Speaking
-    ▸ WebStorm — turn 1 · Composing
-  ─────────────────────────────────
-  Test Conversation…                 ⌥⌘T
-  ─────────────────────────────────
-  Microphone       Allowed
-  Speech Recognition   Not determined
-  Permissions…
-  ─────────────────────────────────
-  Settings…                            ⌘,
-  Show Log
-  Start at Login                        ✓
-  ─────────────────────────────────
-  Quit VoiceChat                       ⌘Q
-```
-
-Menu, as built — the session list and Test Conversation are implemented as designed; the
-permissions rows, Settings, Show Log, and Start at Login are not implemented (they depend on
-[§11 Settings](#11-settings), also not yet built, and on the logging story in
-[§12.3](#123-logging), which is simpler than designed):
-
-```
-  VoiceChat 0.0.2
-  ─────────────────────────────────
-  2 conversations open
-      claude-code — turn 3
+      claude-code — project — turn 3
       WebStorm — turn 1
+  ─────────────────────────────────
+  New Debate…                     ⌥⌘D
+      owl-42 — 1 of 2 seats filled  ▸  Copy join instruction for "against" · End Debate
   ─────────────────────────────────
   Test Conversation…              ⌥⌘T
   ─────────────────────────────────
   ✓ MCP Server (port 8765)
+  MCP Server Config…
   ─────────────────────────────────
-  Quit VoiceChat
+  Quit VoiceChat                  ⌘Q
 ```
 
-The **MCP Server (port …)** item, which toggles the Streamable HTTP transport ([§4.7](#47-streamable-http-transport)), is the one addition beyond the
-original design: a checkable toggle, checked while the transport is listening.
+Designed but not built: permission rows, Settings…, Show Log and Start at Login (they depend on
+[§11](#11-settings) and [§12.3](#123-logging)).
 
 | | |
 |---|---|
 | `R-APP-2` | Selecting a session in the list focuses its window. |
-| `R-APP-3` | **Test Conversation…** opens a conversation window backed by a loopback session with no MCP host: prompts are echoed back as responses after a short delay. This is the primary manual-testing affordance and **MUST** ship in release builds — it is how a person verifies microphone, voice, and commands without configuring a host. |
-| `R-APP-4` | *Not implemented.* No permission rows or **Permissions…** item exist; there is no menu-driven way to check or jump to TCC status today. |
-| `R-APP-5` | *Not implemented.* No **Start at Login** item; `SMAppService` is not wired up. The app must be launched manually or via the MCP server's auto-launch (`R-ARCH-3`). |
-| `R-APP-6` | **Quit** ends every open session first via `applicationWillTerminate` — each resolves its `turn.await` with `ended` — and only then terminates, so no host is left with a hanging tool call. The single-confirmation-naming-the-count behaviour for unsent text is *not implemented*; Quit is immediate and unconditional. |
-| `R-APP-7` | A session is removed from this list, and its window and model become deallocatable, only when its window actually closes — not merely when the conversation ends. Ending a conversation (by any means) leaves its window showing a terminal banner and a **Close** button until the window itself is dismissed (immediately for a person-initiated end, after a short delay otherwise, or on demand via **Close**); only that closing is true disposal. Until then the ended session still counts toward "N conversations open" and can still be brought back to the front from this menu — that is expected, not a leak. |
-| `R-APP-9` | **MCP Server Config…** opens a small dialog showing a sample client configuration (`.mcp.json` format) for both transports: the `stdio` entry is always `/Applications/VoiceChat.app/Contents/MacOS/voicechat-mcp` (the standard install location, not derived from where the app is running), and the `streamable-http` entry at `http://127.0.0.1:<port>/mcp`. **Copy** puts the JSON on the clipboard (the button reads `Copied` for 1.5 s); **Save…** writes it to a user-chosen `.json` file via `NSSavePanel`. Reopening while it is showing brings the existing dialog forward. |
-| `R-APP-8` | The **Streamable HTTP** item toggles [§4.7](#47-streamable-http-transport)'s listener on and off live, with no relaunch. It starts pre-checked only when `VOICECHAT_MCP_HTTP_PORT` was set at launch; otherwise it is unchecked and the port shown is the built-in default (8765). Toggling it off must fully release the port and its background tasks so toggling it back on repeatedly does not leak either — not just close the visible connections. |
+| `R-APP-3` | **Test Conversation…** opens a window on a loopback session with no MCP host, echoing prompts back as responses. It **MUST** ship in release builds: it's how a person checks the microphone, voice and commands without a host. |
+| `R-APP-4` | *Not implemented:* permission rows and **Permissions…**. |
+| `R-APP-5` | *Not implemented:* **Start at Login**. The app starts manually or by the MCP server's auto-launch (`R-ARCH-3`). |
+| `R-APP-6` | **Quit** first ends every session (each `turn.await` resolves `ended`), so no host is left hanging. It is immediate; there is no confirmation. |
+| `R-APP-7` | A session leaves this list, and its window and model are freed, only when its window actually closes, not when the conversation ends. An ended window keeps its banner and **Close** button until dismissed, and still counts as open. |
+| `R-APP-8` | **MCP Server (port …)** toggles [§4.7](#47-streamable-http-transport)'s listener live. It starts checked only when `VOICECHAT_MCP_HTTP_PORT` was set at launch; otherwise the default port is 8765. Turning it off fully releases the port and its tasks. |
+| `R-APP-9` | **MCP Server Config…** opens one floating dialog (reopening brings it forward) with sample configuration for both transports — stdio at `/Applications/VoiceChat.app/Contents/MacOS/voicechat-mcp`, HTTP at `http://127.0.0.1:<port>/mcp` — as a JSON tab (`mcpServers`) and a Shell tab of remove-then-add commands for Claude Code, Antigravity and Codex, each with a copy button. **Copy** / **Copy All** and **Save…** (`NSSavePanel`) act on the tab. |
 
 ---
 
 ## 11. Settings
 
-*Status: not yet implemented (P5, [§16](#16-implementation-phases)).* There is no Settings scene
-today; the behaviours below (vocabulary editing, voice/rate selection, `waitMs` override, and the
-per-conversation-ending confirmation option) do not exist as user-facing controls. `VocabularyStore`
-already persists to `~/Library/Application Support/VoiceChat/vocabulary.json` per `R-STT-19`/`20`,
-so only the editor UI is missing there; ending a conversation currently has no confirmation at all,
-in any circumstance (`R-UI-19`), rather than the three-way choice described here.
-
-A standard `Settings` scene with four panes.
+*Status: not built.* The design below is the target. Today the vocabulary persists without an editor
+(`R-STT-19`), ending never asks for confirmation (`R-UI-19`), and the only speech-output settings
+are Mute, Talking Head and a debate's voices.
 
 | Pane | Contents |
 |---|---|
@@ -1555,19 +1399,14 @@ setting is per-session or per-host.
 
 ### 12.3 Logging
 
-*Status: much simpler than designed.* Nothing below the line uses `os.Logger`, structured
-categories, file rotation, or a **Show Log** affordance ([§10](#10-menu-bar-applet)). The MCP server
-writes one-line, unconditional diagnostics (`converse -> <status>`, failures) to `stderr` only, via a
-plain `FileHandle.standardError.write` — satisfying the load-bearing half of `R-LOG-2` (never
-`stdout`, so the JSON-RPC channel is never corrupted) without the file-logging half. The daemon
-(`voicechatd`) does not log anything at all today. The original design is kept below as the target
-for a future pass, since desync diagnosis without a persistent log is real debt, not a stylistic gap.
+*Status: much simpler than designed.* `voicechat-mcp` writes one-line diagnostics to `stderr` only
+(never `stdout`); the app logs nothing. The table is the target.
 
 | | |
 |---|---|
 | `R-LOG-1` | *Not implemented.* `os.Logger`, subsystem `dev.sandipchitale.voicechat`, categories `vcp`, `mcp`, `session`, `stt`, `tts`, `ui`. |
-| `R-LOG-2` | *Partially implemented* — see above. The MCP server logs to `stderr`; not to `~/Library/Logs/VoiceChat/mcp-<pid>.log`. **Never** to `stdout` (`R-MCP-3`) — this part holds. |
-| `R-LOG-3` | Holds vacuously: the only things currently logged are a status word and error descriptions, never prompt or response text, so there is nothing that needs a `privacy: .private` marking yet. |
+| `R-LOG-2` | *Partial:* the MCP server logs to `stderr`, not to `~/Library/Logs/VoiceChat/mcp-<pid>.log`, and **never** to `stdout` (`R-MCP-3`). |
+| `R-LOG-3` | Prompt and response text is never logged (today only statuses and errors are). |
 | `R-LOG-4` | *Not implemented.* No **Show Log** item, no log directory, no rotation. |
 | `R-LOG-5` | *Not implemented.* State transitions are not logged; a desync today can only be diagnosed by reproducing it live. |
 
@@ -1577,12 +1416,12 @@ for a future pass, since desync diagnosis without a persistent log is real debt,
 
 | | |
 |---|---|
-| `R-SEC-1` | Audio is captured, transcribed, and synthesised entirely on-device. VoiceChat makes no network connections of any kind. |
+| `R-SEC-1` | Audio is captured, transcribed and synthesised on-device. VoiceChat makes no network connections (the only sockets are local: VCP, the loopback HTTP transport, and Talking Head's spooler). |
 | `R-SEC-2` | No prompt, response, or transcript is written to disk unless the person explicitly exports one (`R-UI-14`). |
-| `R-SEC-3` | The socket is mode `0600` inside a mode `0700` directory, and the peer uid is verified (`R-VCP-5`). Any local process running as the same user can open a conversation window; this is the same trust boundary as the MCP host itself, and is stated plainly rather than implied. |
+| `R-SEC-3` | The socket is mode `0600` inside a mode `0700` directory, and the peer uid is verified (`R-VCP-5`). Any process running as the same user can open a conversation window — the same trust boundary as the MCP host. |
 | `R-SEC-4` | `continuation` tokens are authenticated against server-side state (`R-MCP-6`) and are meaningless to any other process. |
 | `R-SEC-5` | Spoken content reaching the model is delimited (`R-MCP-9`). VoiceChat does not otherwise filter or moderate what the person says. |
-| `R-SEC-6` | The `com.apple.security.device.audio-input` entitlement is in place. Hardened runtime, a Developer ID signature, and notarisation are **not** — the current build is ad-hoc signed only ([§16](#16-implementation-phases) P6, [SETUP.md](SETUP.md)), which is why the microphone/speech permission grant does not survive every rebuild. |
+| `R-SEC-6` | The `com.apple.security.device.audio-input` entitlement is in place. Hardened runtime, Developer ID signing and notarisation are not (P6); builds are ad-hoc signed, so permission grants may not survive an update. |
 | `R-SEC-7` | *Not implemented* — depends on the Settings scene ([§11](#11-settings)), which does not exist yet. |
 
 ---
@@ -1597,9 +1436,7 @@ for a future pass, since desync diagnosis without a persistent log is real debt,
 sudo xcodebuild -license
 ```
 
-*Resolved.* This blocked the very start of implementation and is noted here only because the spec
-originally flagged it as an open risk; it is a one-time step on any new machine, not an ongoing
-concern.
+(A one-time step on a new machine.)
 
 ### 14.2 Layout
 
@@ -1621,20 +1458,14 @@ VoiceChat/
 └── Commands and Dictation.md
 ```
 
-`R-BLD-2` *As built, this is simpler than originally planned:* there is no Xcode project at all.
-`voicechatd` and `voicechat-mcp` are ordinary SwiftPM executable targets, and
-[`Scripts/make-app.sh`](Scripts/make-app.sh) assembles `VoiceChat.app` directly — copying
-`App/Info.plist`, the two built executables (`voicechatd` renamed to `Contents/MacOS/VoiceChat`,
-per `CFBundleExecutable`), and ad-hoc signing both the inner `voicechat-mcp` and the outer bundle
-with its entitlements. This still satisfies the original intent (TCC authorisation, `LSUIElement`,
-and code signing all need a real bundle, while the testable core is a plain library `swift test` can
-run with no bundle at all) with less machinery: no separate project file to keep in sync with the
-package, and no Xcode dependency for a routine rebuild.
+`R-BLD-2` There is no Xcode project. [`Scripts/make-app.sh`](Scripts/make-app.sh) assembles
+`VoiceChat.app` from the SwiftPM executables — `App/Info.plist`, `voicechatd` as
+`Contents/MacOS/VoiceChat`, and `voicechat-mcp` — and ad-hoc signs the inner tool and the bundle with
+its entitlements. `Scripts/release.sh <version>` builds the universal release zip after checking the
+version in `App/Info.plist` and `VoiceChatVersion.swift`.
 
 `R-BLD-3` `Scripts/make-app.sh` **MUST** copy the same build's `voicechat-mcp` into
-`VoiceChat.app/Contents/MacOS/`, so the app and the server can never drift to different versions —
-enforced by construction (one script, one build, two copies) rather than by a version-string check
-at runtime.
+`VoiceChat.app/Contents/MacOS/`, so the app and server can't drift apart.
 
 ### 14.3 Settings that matter
 
@@ -1668,11 +1499,10 @@ or, for any host taking a config file:
 `R-BLD-4` The server **MUST** require no arguments, no environment, and no prior daemon launch —
 `R-ARCH-3` handles starting the daemon. Optional environment overrides, all implemented:
 `VOICECHAT_APP_PATH` (bundle location, `DaemonLauncher`), `VOICECHAT_SOCKET` (`VCP.defaultSocketURL`),
-`VOICECHAT_TURN_WAIT_MS` (bounded-wait duration, clamped to a 10 s minimum). `VOICECHAT_LOG_LEVEL` is
-not implemented — logging is unconditional per [§12.3](#123-logging), with no level to override.
+`VOICECHAT_TURN_WAIT_MS` (bounded-wait duration, at least 10 s). There is no log level.
 
-A host that speaks Streamable HTTP ([§4.7](#47-streamable-http-transport)) instead can be registered
-alongside, or instead of, the stdio entry — both reach the same daemon and the same `converse` tool:
+A host that speaks Streamable HTTP ([§4.7](#47-streamable-http-transport)) can use it alongside, or
+instead of, stdio:
 
 ```json
 {
@@ -1689,9 +1519,8 @@ alongside, or instead of, the stdio entry — both reach the same daemon and the
 }
 ```
 
-The `voicechat-http` entry only connects once the menu bar's **Streamable HTTP** item is checked, or
-`VOICECHAT_MCP_HTTP_PORT` was set before launch (`R-APP-8`) — unlike `voicechat-mcp`, nothing
-auto-launches this side for you.
+`voicechat-http` connects only once **MCP Server (port …)** is on, or `VOICECHAT_MCP_HTTP_PORT` was
+set at launch (`R-APP-8`); nothing launches the app for it.
 
 ---
 
@@ -1699,10 +1528,9 @@ auto-launches this side for you.
 
 ### 15.1 Strategy
 
-`VoiceChatKit` contains the state machine, the protocol codec, the command dispatcher, the Markdown
-conversions, and the speech-text builder, and imports no UI framework (`R-ARCH-5`). Nearly every
-requirement in this document is therefore testable with `swift test`, with no window and no
-microphone.
+`VoiceChatKit` holds the state machine, codecs, command dispatcher, Markdown conversion, speech-text
+builder and Talking Head client, and imports no UI framework (`R-ARCH-5`), so nearly every requirement
+is testable with `swift test`, with no window and no microphone.
 
 ### 15.2 Required tests
 
@@ -1717,6 +1545,7 @@ microphone.
 | Markdown | Round-trip fixtures; unformatted text byte-identity (`R-TXT-6`); malformed-input fallback (`R-TXT-4`); metacharacter non-escaping (`R-TXT-7`). |
 | Speech text builder | Code-block announcement and skipping; heading pauses; link URL suppression; segment-table alignment across skipped content (`R-TTS-7`); truncation (`R-TTS-8`). |
 | Interlock | With mock engines, assert `R-FSM-3` and `R-FSM-4` hold after every transition, including re-entrant Play/Stop sequences (`R-TTS-9`). |
+| Talking Head | Every row of the presence table (`R-TTS-17`); change-only sequences over full turns and Stop → Play → Got it; the 600 ms nod throttle (`R-TTS-18`); against a fake spooler socket: each event mapping and Stop (`R-TTS-20`), fallback to a fake `th` with no socket or no reply (`R-TTS-19`), and the presence connection's lifetime and unsupported fallback (`R-TTS-21`). |
 
 ### 15.3 Integration
 
@@ -1752,30 +1581,30 @@ Each item names the requirements it verifies.
 20. Denying microphone access leaves the whole conversation usable by keyboard. `R-STT-26`, G5
 21. With VoiceOver on, responses do not auto-play and state changes are announced. `R-UI-24`, `R-UI-23`
 22. **Test Conversation…** runs a full loop with no host configured. `R-APP-3`
-23. Checking **Streamable HTTP** in the menu bar starts it; a client registered as `streamable-http`
-    against `http://localhost:<port>/mcp` can `initialize`, list `converse` with schema/description
-    identical to the stdio tool, call it, get a window, exchange turns, and `DELETE` its session,
-    closing that window. `R-MCP-18`–`R-MCP-20`, `R-APP-8` — **but see the open issue in
-    [§4.7](#47-streamable-http-transport): this sequence has passed, and a bare `converse()` on a
-    fresh session has also independently failed immediately with no window at all. The checklist
-    item is not yet reliably green.**
+23. Turning on **MCP Server (port …)** lets a `streamable-http` client at `http://localhost:<port>/mcp`
+    `initialize`, list an identical `converse`, hold a conversation, and `DELETE` its session, closing
+    the window. `R-MCP-18`–`R-MCP-20`, `R-APP-8` (see the known issue in [§4.7](#47-streamable-http-transport)).
+24. With Talking Head on and its app running, the face listens (nodding per dictated phrase) while
+    composing, thinks after Send, speaks the reply, and returns to listening without closing; Stop,
+    Play and Got it keep it listening; Mute and ending let it go; each debate seat shows its own;
+    quitting Talking Head mid-conversation falls back to `th` without stranding a turn. `R-TTS-17`–`R-TTS-21`
 
 ---
 
 ## 16. Implementation phases
 
-Each phase ends in something runnable and demonstrable.
-
-| Phase | Deliverable | Done when | Status |
-|---|---|---|---|
-| **P0 — Skeleton** | Package + Xcode project, `LSUIElement` app, status item, empty window, logging. | The app launches, shows a menu bar icon, and opens an empty window from the menu. | ✅ Done |
-| **P1 — The loop, typed** | VCP (codec, listener, client), `session.open` / `turn.await`, MCP server with `converse`, state machine, both panes, Send / Got it! / End conversation, bounded wait + continuation. **No speech at all.** | A host runs a complete multi-turn typed conversation; `R-VCP-7`–`R-VCP-12` and the full state machine test suite pass. | ✅ Done |
-| **P2 — Output** | Markdown → attributed rendering, `AVSpeechSynthesizer`, sentence segmentation, highlighting, Play / Stop / Got it! semantics, Auto vs Manual latch. | Responses render and read aloud; rows 6–13 of [§5.2](#52-transition-table) verified by hand and by test. | ✅ Done |
-| **P3 — Dictation** | `SpeechAnalyzer` pipeline, permissions, mic toggle, volatile/finalised handling, the interlock, device arbitration. | A full conversation is held by voice except for command mode; `R-FSM-3`/`R-FSM-4` hold under the interlock tests. | ✅ Done |
-| **P4 — Command mode** | The command table, normalisation, `<count>` and `<phrase>` resolution, precedence, dispatcher, undo integration, vocabulary store. The largest phase. | Every phrase in `Commands and Dictation.md` has an implementation and a passing test (`R-STT-18`). | ✅ Done — `TextUnits`, `TextDocument`, `EditCommand`, `TextCommandParser`, `TextCommandExecutor` (`VoiceChatKit`), `NSTextViewDocument` (`VoiceChatUI`) |
-| **P5 — Fit and finish** | History strip, export, settings panes, menu bar session list, Test Conversation, accessibility pass, error catalogue. | The manual acceptance checklist passes end to end. | 🟡 Partial — history strip, export, menu bar session list (with true window-close disposal, `R-APP-7`), and Test Conversation are done; **settings panes ([§11](#11-settings)) do not exist yet**, and the accessibility pass and error catalogue are unverified |
-| **P6 — Ship** | Signing, hardened runtime, notarisation, version-match build check, install and host-registration documentation. | A notarised `.app` installs on a clean machine and works from a single `claude mcp add`. | ⬜ Not started — ad-hoc signed only; see [SETUP.md](SETUP.md) |
-| **P7 — Streamable HTTP transport** *(addendum — not in the original P0–P6 plan)* | A second, opt-in MCP transport reaching `converse` in-process, sharing the tool contract and turn engine with stdio ([§4.7](#47-streamable-http-transport)), plus a menu bar toggle (`R-APP-8`). | `tools/list` matches the stdio tool byte-for-byte; a full turn exchange and session teardown work over HTTP. | 🟠 Built, but **not reliable**: manual checklist item 23 has both passed in full and failed immediately (no window, instant `ended`) on a freshly issued session. Root cause not yet found. |
+| Phase | Deliverable | Status |
+|---|---|---|
+| **P0 — Skeleton** | `LSUIElement` app, status item, empty window. | ✅ |
+| **P1 — The loop, typed** | VCP, `session.open` / `turn.await`, `converse`, the state machine, both panes, bounded wait. | ✅ |
+| **P2 — Output** | Markdown rendering, speech, highlighting, Play / Stop / Got it!, the manual latch. | ✅ |
+| **P3 — Dictation** | `SpeechAnalyzer`, permissions, the interlock, device arbitration. | ✅ |
+| **P4 — Command mode** | The full command table with tests for every phrase (`R-STT-18`). | ✅ |
+| **P5 — Fit and finish** | History, export, menu bar, Test Conversation, settings, accessibility, error catalogue. | 🟡 Settings ([§11](#11-settings)) not built; accessibility and error catalogue unverified |
+| **P6 — Ship** | Developer ID signing, hardened runtime, notarisation. | ⬜ Ad-hoc signed releases only |
+| **P7 — Streamable HTTP** | The opt-in second transport ([§4.7](#47-streamable-http-transport)). | ✅ with a known issue |
+| **P8 — Debates** | Two clients argue a motion ([§17](#17-debate)). | ✅ |
+| **P9 — Talking Head** | Replies read by Talking Head, and its face following the conversation ([§9.5](#95-talking-head)). | ✅ |
 
 ---
 
@@ -1786,23 +1615,18 @@ motion, and each one's finished statement becomes the other's incoming prompt. T
 room and moderates it.
 
 `R-DEB-1` The relay **MUST** hang off the turn advancing (`SessionEffects.advancesTurn`, rows 7, 8
-and 13 of [§5.2](#52-transition-table)), never off speech finishing. Auto-play is off under VoiceOver
-and where no voice is installed (`R-UI-24`), and a moderator may cut a statement short with Stop then
-**Got it!** — in both cases speech never finishes, and a relay hung off it would strand the debate
-silently.
+and 13 of [§5.2](#52-transition-table)), never off speech finishing, which may never happen (no
+auto-play, or Stop then **Got it!**).
 
-`R-DEB-2` Muting **MUST NOT** change a debate. `R-TTS`-level muting leaves the reading, the sentence
-highlight and the turn advance running, so a moderator can silence both windows and follow the
-argument by the highlight alone, at the same pace. No relay may be triggered by audio state, an audio
-tap, or an estimated reading duration.
+`R-DEB-2` Muting **MUST NOT** change a debate: the reading, highlight and turn advance run on, so a
+muted moderator follows by the highlight at the same pace. No relay may depend on audio state, an
+audio tap, or an estimated reading time.
 
-`R-DEB-3` There is **no speech arbiter**. Stopping one seat's synthesiser from outside the state
-machine would leave that seat in `Responding.Auto` for ever (its cancellation deliberately does not
-re-enter the machine), which is the very stall an arbiter would be added to prevent. A debate
-alternates by construction.
+`R-DEB-3` There is **no speech arbiter**: stopping a seat's speech from outside its state machine
+would strand it in `Responding.Auto`. A debate alternates by construction.
 
 `R-DEB-4` The person creates a room from the menu bar; clients only join. Nothing opens until a seat
-is taken, so no window is ever orphaned waiting for a client that never comes.
+is taken.
 
 `R-DEB-5` A client takes a seat by passing `debate_id` and `side` on its **first** `converse` call.
 A refusal — unknown room, unknown seat, seat taken — **MUST** be an actionable sentence naming the
@@ -1813,10 +1637,9 @@ be sent for the person. Anything the person adds or changes before sending is at
 `> Moderator:` line, and each seat's briefing tells it to comply with such lines.
 
 `R-DEB-7` The first seat opens. Each briefing requires a debater to name itself in the first sentence
-of every statement, so a listener — or a muted observer reading the highlight — always knows who is
-speaking. Both seats speak in the Mac's standard voice unless the person chooses otherwise — picking
-for them sorts straight into the novelty voices — and are separated instead by a small pitch and rate
-difference.
+of every statement, so a listener always knows who is speaking. Both seats use the Mac's standard
+voice unless the person chooses otherwise, separated by a small pitch and rate difference (with Talking
+Head, by opposite faces, `R-TTS-16`).
 
 `R-DEB-8` Each seat's window carries a debate bar showing the motion, the seat, the statement count,
 what it is waiting for, and the moderator's **Skip turn** and **End debate**. Ending one seat ends
@@ -1825,8 +1648,8 @@ the other exactly once, and a finished room's id stops working immediately.
 `R-DEB-10` Each seat's bar carries an **Auto** switch, off by default and per seat: while it is on,
 a statement arriving in that window is passed to its debater without waiting for Send, and switching
 it on passes along a statement already waiting. One side may run automatically while the other is
-still moderated by hand. The rule belongs to the debate, not to the window: the machine holds the
-per-seat setting and answers it in the `deliver` effect, so it is decided and tested in one place.
+still moderated by hand. The debate machine holds the per-seat setting and applies it in its
+`deliver` effect.
 
 `R-DEB-9` Debate windows open with the microphone off — their turns arrive as text — and are placed
 beside one another, stacking top and bottom where the screen is too narrow for two windows at
@@ -1856,18 +1679,17 @@ beside one another, stacking top and bottom where the screen is too narrow for t
 | **B2** | Persisted transcripts across sessions | Deliberately excluded (`R-UI-13`, `R-SEC-2`). Would need a storage format, a retention policy, and a privacy review. |
 | **B3** | `SFSpeechRecognizer` fallback for macOS < 26 | The `SpeechRecognitionEngine` protocol (`R-STT-3`) already makes room for it. |
 | **B4** | Multi-session polish | Multiple concurrent windows work; a session switcher and per-session audio routing are not designed. |
-| **B5** | ~~Contextual-phrase API for `SpeechTranscriber`~~ | **Resolved.** `AnalysisContext.contextualStrings` confirmed against the macOS 26 SDK; `R-STT-19` binds to it directly and `R-STT-21` is retired. See [§8.6](#86-custom-vocabulary). |
+| **B5** | ~~Contextual-phrase API~~ | Resolved: `AnalysisContext.contextualStrings` ([§8.6](#86-custom-vocabulary)). |
 | **B6** | Streaming responses | The model's reply arrives whole. Token-by-token display and speech would need a `turn.append` VCP method and re-segmentation mid-playback. |
-| **B7** | Barge-in | Excluded by decision (conflict **C1**). Reversible: it would need acoustic echo cancellation plus the echo guard described in that discussion. |
+| **B7** | Barge-in | Excluded by decision (**C1**); would need acoustic echo cancellation. |
 | **B8** | Localisation | UI strings are `String(localized:)` from the start; only `en` ships. Command matching is English-only and tied to `Commands and Dictation.md`. |
 
 ---
 
 ## Appendix C — Original specification (v1.0)
 
-Preserved verbatim. This project is not under version control, so the superseded text is kept here
-rather than lost. Every statement in it is traced to a requirement in
-[Appendix D](#appendix-d--traceability-to-v10).
+The original request, verbatim. [Appendix D](#appendix-d--traceability-to-v10) traces every statement
+to a requirement.
 
 ```markdown
 # SPEC.md: macOS Voice-Enabled Dual-Pane UI for Model Context Protocol (MCP)
@@ -1914,8 +1736,7 @@ Make sure the MCP server has a tool which can be invoked that starts the convers
 
 ## Appendix D — Traceability to v1.0
 
-Every statement in [Appendix C](#appendix-c--original-specification-v10) maps to at least one
-requirement here. Nothing from v1.0 was dropped.
+Every statement of [Appendix C](#appendix-c--original-specification-v10) maps to a requirement.
 
 | v1.0 line | Statement | Realised by |
 |---|---|---|

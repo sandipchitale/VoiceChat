@@ -19,6 +19,9 @@ public final class SpeechOutputController: NSObject {
     /// and 11 both hang off "the synthesiser stopped".
     public var onFinished: (() -> Void)?
     public var onCancelled: (() -> Void)?
+    /// Something worth telling the person that doesn't stop the conversation
+    /// (Talking Head refused a reading).
+    public var onWarning: ((String) -> Void)?
 
     public var options = SpeechBuildOptions()
     public var voiceIdentifier: String?
@@ -54,6 +57,7 @@ public final class SpeechOutputController: NSObject {
     private lazy var talkingHead: TalkingHeadSpeaker = {
         let speaker = TalkingHeadSpeaker()
         speaker.onFinished = { [weak self] in self?.talkingHeadEnded(cancelled: false) }
+        speaker.onError = { [weak self] message in self?.onWarning?(message) }
         speaker.onCancelled = { [weak self] in
             guard let self else { return }
             // Ended by mute: a finish. Ended by stop(): a cancellation.
@@ -117,7 +121,7 @@ public final class SpeechOutputController: NSObject {
         }
 
         if useTalkingHead, !isMuted, TalkingHeadSpeaker.isInstalled {
-            // `th` reports no progress, so there is no sentence highlight.
+            // Talking Head reports no word progress, so there is no sentence highlight.
             isSpeaking = true
             onHighlight?(nil)
             talkingHead.speak(speakable.map(\.element.text).joined(separator: "\n"),

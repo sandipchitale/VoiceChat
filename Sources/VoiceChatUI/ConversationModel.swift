@@ -152,6 +152,9 @@ public final class ConversationModel {
     /// relays a finished answer elsewhere cannot be stranded by a turn that
     /// advanced without speech (R-DEB-1).
     public var onTurnAdvanced: ((_ statement: String, _ turn: Int) -> Void)?
+    /// After every transition, with the machine as it now stands — the one
+    /// place Talking Head's presence is derived from (R-TTS-17).
+    public var onMachineChanged: ((SessionMachine) -> Void)?
 
     public func setHighlight(_ range: NSRange?) { highlightRange = range }
 
@@ -287,6 +290,7 @@ public final class ConversationModel {
         // included — has to be done first. Saying that in the order rather
         // than in a deferred task keeps it explicit and testable.
         if let statement { onTurnAdvanced?(statement, beforeTurn) }
+        onMachineChanged?(machine)
     }
 
     public func send() {
@@ -409,6 +413,10 @@ public final class ConversationModel {
     public func clearVolatile() { volatileText = "" }
 
     public func dismissToast() { commandToast = nil }
+
+    /// Something worth telling the person that needs no action (Talking Head
+    /// refused a reading), shown in the same chip as command feedback.
+    public func showWarning(_ message: String) { commandToast = message }
 
     public let vocabulary = VocabularyStore()
     /// Lets the session push the updated phrase list to the recogniser.
