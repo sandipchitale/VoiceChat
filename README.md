@@ -98,9 +98,23 @@ of a motion, with you moderating.
 ![A debate in progress: Claude Code for the motion, Gemini against](screenshots/debate.png)
 
 1. Menu bar → **New Debate…** (⌥⌘D): the motion, each side's position, how many statements before
-   closing arguments, and a voice per side. The room gets an id like `owl-42`.
-2. **Copy join instruction** for each seat and paste it into the client that should argue it. Each
-   gets its own window.
+   closing arguments, and a voice per side. With Talking Head installed, also each side's **Face**
+   (Man or Woman; the other side always gets the other one). The room gets an id like `owl-42`.
+2. Choose each side's **Debater**:
+   - **Claude Code** (`claude -p`), **Antigravity** (`agy -p`) or **Codex** (`codex exec`), offered
+     when that command is on your PATH. The dialog proposes the command to run, which you can edit
+     (the join instruction is in `$VOICECHAT_JOIN`; **Reset** restores the proposal). VoiceChat runs
+     it in your shell for you, in an empty folder under
+     `~/Library/Application Support/VoiceChat/debates/<id>/` (its output is logged there), and stops
+     it when the debate ends. Claude Code and Codex are given VoiceChat's server on the command line;
+     Antigravity uses its own MCP configuration, so add VoiceChat to it first, and runs with
+     `--dangerously-skip-permissions` so it can call `converse` without a prompt nobody can answer.
+     Each CLI must be logged in.
+   - **None**: the dialog shows that side's join instruction (the prompt to paste), updating as you
+     type the motion, with a **Copy** button. Paste it into any MCP client. On **Create Debate** the
+     first such side's instruction is also copied, and the menu's **Copy join instruction** still works.
+
+   Each side gets its own window.
 3. The first seat opens. When a statement has been read, it lands in the other window's prompt pane;
    press **Send** to pass it across, after editing it if you want to interject (your additions are
    marked `> Moderator:`). **Auto** in a window's debate bar passes that side's statements without you.

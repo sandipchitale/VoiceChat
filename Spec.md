@@ -1654,6 +1654,25 @@ it on passes along a statement already waiting. One side may run automatically w
 still moderated by hand. The debate machine holds the per-seat setting and applies it in its
 `deliver` effect.
 
+`R-DEB-11` The New Debate dialog offers, per seat, a command-line client to start: Claude Code
+(`claude -p`), Antigravity (`agy -p`) or Codex (`codex exec`), each only when that command is found on
+the person's login-shell PATH (a GUI app doesn't inherit it), else **None**. Choosing a client proposes its command line
+(`DebateClient.commandLine`) in an editable field; what the person leaves there is what runs, through
+their shell, with the seat's join instruction in `$VOICECHAT_JOIN` (so the command survives edits to
+the motion), and **Reset** restores the proposal. The proposals run the join instruction unattended: Claude Code and Codex are given VoiceChat's own
+stdio `voicechat-mcp` on the command line (Claude may call only `converse`); Antigravity uses its own
+MCP configuration and skips permission prompts. Each runs with the login-shell PATH in an empty
+per-debate folder, `~/Library/Application Support/VoiceChat/debates/<id>/`, logging to
+`<seat>-<client>.log` there. It is stopped when its debate ends or VoiceChat quits; one that exits
+without taking its seat is reported with the log's path. For a seat with **None**, the same five-line box
+shows, read-only, the join instruction to paste (with the room id, chosen when the dialog opens), and
+a **Copy** button copies it. The join instruction of the first seat without a client is also copied on
+Create, as before.
+
+`R-DEB-12` The dialog sets the Talking Head face (Man or Woman) of the first seat, when Talking Head
+is installed; the other seat always takes the other face, so choosing either seat's face flips the
+other. It seeds the debate's own choice (`R-TTS-16`) and never changes the shared setting.
+
 `R-DEB-9` Debate windows open with the microphone off — their turns arrive as text — and are placed
 beside one another, stacking top and bottom where the screen is too narrow for two windows at
 `Metrics.minWindowSize` (2 × 1040 pt plus a gap). Only the first seat's window takes focus.

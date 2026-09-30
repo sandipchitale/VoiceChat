@@ -37,7 +37,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         server = DaemonServer(version: daemonVersion)
         server.onSessionsChanged = { [weak self] in self?.rebuildMenu() }
-        DebateRegistry.shared.onRoomsChanged = { [weak self] in self?.rebuildMenu() }
+        DebateRegistry.shared.onRoomsChanged = { [weak self] in
+            self?.rebuildMenu()
+            // R-DEB-11 — a finished debate's command-line debaters are stopped.
+            DebateClientLauncher.shared.stopAll(except: Set(DebateRegistry.shared.rooms.map(\.id)))
+        }
+        DebateClientLauncher.shared.isSeatFree = { roomID, seat in
+            DebateRegistry.shared.coordinator(roomID)?.freeSeats.contains { $0.key == seat } ?? false
+        }
 
         do {
             try server.start()
@@ -52,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        DebateClientLauncher.shared.stopAll()
         // R-APP-6 / R-VCP-14 — end every session, on both transports, so no
         // host is left with a hanging call.
         server?.stop()
@@ -217,12 +225,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Debates (§17)
 
     @objc private func newDebate() {
-        DebateSetupWindowController.show { room in
-            DebateRegistry.shared.create(room)
+        DebateSetupWindowController.show { setup in
+            let room = setup.room
+            DebateRegistry.shared.create(room, talkingHeadVoice: setup.firstSeatFace)
             // Nothing opens yet: windows appear as clients take the seats.
-            NSPasteboard.general.clearContents()
-            if let first = room.seats.first {
-                NSPasteboard.general.setString(room.joinInstruction(for: first), forType: .string)
+            // R-DEB-11 — start the clients chosen for their seats, and copy the
+            // join instruction of the first seat left for the person to fill.
+            for seat in room.seats {
+                if let debater = setup.debaters[seat.key] {
+                    DebateClientLauncher.shared.launch(debater.client, command: debater.command,
+                                                       seat: seat, room: room)
+                }
+            }
+            if let manual = room.seats.first(where: { setup.debaters[$0.key] == nil }) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(room.joinInstruction(for: manual), forType: .string)
             }
         }
     }
